@@ -36,4 +36,6 @@ private:
     QTimer hoverTimer;
     QString status;
     bool ready = false;
+    bool dragging = false;
+    QPoint dragStart;
 };

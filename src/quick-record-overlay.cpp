@@ -1,5 +1,6 @@
 #include "quick-record-overlay.hpp"
 #include "monitor-selector.hpp"
+#include "region-selector.hpp"
 #include "settings.hpp"
 #include <QApplication>
 #include <QEvent>
@@ -51,16 +52,13 @@ public:
     QRectF localRect(const QRect &physical) const
     {
         // Subtract the physical monitor origin BEFORE scaling to local logical pixels.
-        return QRectF((physical.x() - monitor.physical.x()) * double(width()) / monitor.physical.width(),
-                      (physical.y() - monitor.physical.y()) * double(height()) / monitor.physical.height(),
-                      physical.width() * double(width()) / monitor.physical.width(),
-                      physical.height() * double(height()) / monitor.physical.height());
+        return RegionSelector::toLogical(physical, monitor.physical, size());
     }
     void paintEvent(QPaintEvent *) override
     {
         QPainter p(this);
         p.fillRect(rect(), QColor(0,0,0,95));
-        if (owner.selected.valid()) {
+        if (!owner.selected.physical.isEmpty()) {
             auto selection = localRect(owner.selected.physical);
             p.setCompositionMode(QPainter::CompositionMode_Source);
             p.fillRect(selection, QColor(0,0,0,1)); // Nonzero alpha preserves mouse hit testing.
@@ -85,11 +83,13 @@ void QuickRecordOverlay::open()
     monitors = MonitorSelector::enumerate();
     ready = false;
     selected = {};
-    mode = CaptureKind::Monitor;
+    mode = CaptureKind::Region;
+    dragging = false;
     status = text("SelectHint");
     for (const auto &monitor : monitors) {
         auto surface = std::make_unique<Surface>(*this, monitor);
         surface->show();
+        surface->setCursor(Qt::CrossCursor);
         SetWindowDisplayAffinity(reinterpret_cast<HWND>(surface->winId()), WDA_EXCLUDEFROMCAPTURE);
         surfaces.push_back(std::move(surface));
     }
@@ -104,6 +104,7 @@ void QuickRecordOverlay::open()
 void QuickRecordOverlay::hide()
 {
     hoverTimer.stop();
+    dragging = false;
     for (auto &surface : surfaces) surface->hide();
 }
 void QuickRecordOverlay::message(const QString &value) { status = value; repaint(); }
@@ -127,26 +128,39 @@ void QuickRecordOverlay::chooseMode(CaptureKind value)
 {
     mode = value;
     ready = false;
+    dragging = false;
     selected = {};
     status = text("SelectHint");
     emit selectionReset();
+    for (auto &surface : surfaces) surface->setCursor(mode == CaptureKind::Region ? Qt::CrossCursor : Qt::ArrowCursor);
     repaint();
 }
 void QuickRecordOverlay::hover()
 {
     if (ready) return;
     if (mode == CaptureKind::Monitor) selected = MonitorSelector::at(MonitorSelector::cursor(), monitors);
+    else if (mode == CaptureKind::Region && dragging) {
+        selected = RegionSelector::between(dragStart, MonitorSelector::cursor(), monitors);
+        status = QString("%1 × %2\n").arg(selected.physical.width()).arg(selected.physical.height()) + text("SelectHint");
+    }
     repaint();
 }
 void QuickRecordOverlay::press()
 {
     ready = false;
+    if (mode == CaptureKind::Region) { dragging = true; dragStart = MonitorSelector::cursor(); }
     emit selectionReset();
     hover();
 }
 void QuickRecordOverlay::release()
 {
-    if (!selected.valid()) return;
+    hover();
+    dragging = false;
+    if (!selected.valid()) {
+        status = text(mode == CaptureKind::Region && selected.physical.width() >= 2 && selected.physical.height() >= 2 ? "CrossMonitor" : "SelectHint");
+        repaint();
+        return;
+    }
     ready = true;
     status = selected.title + "\n" + QString("%1 × %2\n").arg(selected.physical.width()).arg(selected.physical.height()) + text("ReadyHint");
     repaint();

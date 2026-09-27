@@ -17,5 +17,7 @@ private:
     obs_source_t *source = nullptr;
     obs_source_t *previous = nullptr;
     bool switched = false;
+    obs_sceneitem_t *item = nullptr; // Borrowed; valid while our scene exists.
+    bool cropped = false;
     QElapsedTimer settled;
 };

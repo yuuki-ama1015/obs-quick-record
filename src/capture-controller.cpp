@@ -47,7 +47,7 @@ bool CaptureController::prepare(const CaptureTarget &selection, bool cursor)
     auto *sceneData = obs_source_get_settings(obs_scene_get_source(scene));
     obs_data_set_bool(sceneData, ownerKey, true);
     obs_data_release(sceneData);
-    auto *item = obs_scene_add(scene, source);
+    item = obs_scene_add(scene, source);
     if (!item) { cleanup(); return false; }
     obs_video_info video{};
     if (!obs_get_video_info(&video)) { cleanup(); return false; }
@@ -56,6 +56,7 @@ bool CaptureController::prepare(const CaptureTarget &selection, bool cursor)
     obs_sceneitem_set_bounds_type(item, OBS_BOUNDS_STRETCH);
     obs_sceneitem_set_bounds(item, &bounds);
     settled.invalidate();
+    cropped = false;
     return true;
 }
 bool CaptureController::ready()
@@ -87,6 +88,20 @@ bool CaptureController::ready()
         settled.invalidate();
         return false;
     }
+    if (!cropped && target.kind == CaptureKind::Region) {
+        // Display Capture pixels must agree with the selected physical monitor geometry.
+        if (obs_source_get_width(source) != static_cast<uint32_t>(target.monitor.physical.width()) ||
+            obs_source_get_height(source) != static_cast<uint32_t>(target.monitor.physical.height())) return false;
+        const auto local = target.physical.translated(-target.monitor.physical.topLeft());
+        obs_sceneitem_crop crop{};
+        crop.left = local.x(); crop.top = local.y();
+        crop.right = target.monitor.physical.width() - local.x() - local.width();
+        crop.bottom = target.monitor.physical.height() - local.y() - local.height();
+        obs_sceneitem_set_crop(item, &crop); // OBS source pixels, not Qt logical pixels.
+        cropped = true;
+        settled.invalidate();
+        blog(LOG_INFO, "OBS Quick Record: region selected x=%d y=%d w=%d h=%d", target.physical.x(), target.physical.y(), target.physical.width(), target.physical.height());
+    }
     if (!settled.isValid()) settled.start();
     return settled.elapsed() >= 250;
 }
@@ -114,6 +129,7 @@ void CaptureController::cleanup(bool restore)
         obs_source_remove(obs_scene_get_source(scene));
         obs_scene_release(scene);
         scene = nullptr;
+        item = nullptr;
     }
     obs_source_release(source); source = nullptr;
     obs_source_release(previous); previous = nullptr;

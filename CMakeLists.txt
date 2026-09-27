@@ -23,6 +23,7 @@ add_library(obs-quick-record MODULE
   src/settings-window.cpp
   src/quick-record-overlay.cpp
   src/monitor-selector.cpp
+  src/region-selector.cpp
 )
 target_include_directories(obs-quick-record PRIVATE "${OBS_SOURCE_DIR}/libobs" "${OBS_SOURCE_DIR}/frontend/api" "${CMAKE_CURRENT_BINARY_DIR}")
 target_link_libraries(obs-quick-record PRIVATE "${OBS_LIBRARY}" "${OBS_FRONTEND_LIBRARY}" Qt6::Widgets dwmapi)
@@ -31,3 +32,11 @@ target_compile_options(obs-quick-record PRIVATE /W4 /utf-8 /permissive-)
 set_target_properties(obs-quick-record PROPERTIES PREFIX "")
 install(TARGETS obs-quick-record RUNTIME DESTINATION obs-quick-record/bin/64bit LIBRARY DESTINATION obs-quick-record/bin/64bit)
 install(DIRECTORY data/ DESTINATION obs-quick-record/data)
+include(CTest)
+if(BUILD_TESTING)
+  add_executable(geometry-check tests/geometry-check.cpp src/region-selector.cpp)
+  target_include_directories(geometry-check PRIVATE src)
+  target_link_libraries(geometry-check PRIVATE Qt6::Widgets)
+  target_compile_options(geometry-check PRIVATE /utf-8 /UNDEBUG)
+  add_test(NAME geometry-check COMMAND geometry-check)
+endif()
