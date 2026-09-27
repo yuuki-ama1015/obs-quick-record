@@ -1,6 +1,7 @@
 #include "quick-record-overlay.hpp"
 #include "monitor-selector.hpp"
 #include "region-selector.hpp"
+#include "window-selector.hpp"
 #include "settings.hpp"
 #include <QApplication>
 #include <QEvent>
@@ -139,6 +140,7 @@ void QuickRecordOverlay::hover()
 {
     if (ready) return;
     if (mode == CaptureKind::Monitor) selected = MonitorSelector::at(MonitorSelector::cursor(), monitors);
+    else if (mode == CaptureKind::Window) selected = WindowSelector::at(MonitorSelector::cursor(), monitors);
     else if (mode == CaptureKind::Region && dragging) {
         selected = RegionSelector::between(dragStart, MonitorSelector::cursor(), monitors);
         status = QString("%1 × %2\n").arg(selected.physical.width()).arg(selected.physical.height()) + text("SelectHint");

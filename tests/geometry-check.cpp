@@ -1,8 +1,10 @@
 #include "region-selector.hpp"
+#include "window-selector.hpp"
 #include <cassert>
 #include <iostream>
 int main()
 {
+    assert(WindowSelector::encode("a:#3A", "class:1", "test.exe") == "a#3A#223A:class#3A1:test.exe");
     MonitorInfo left; left.id = "left"; left.physical = {-2560, -240, 2560, 1440};
     MonitorInfo right; right.id = "right"; right.physical = {0, 0, 3840, 2160};
     std::vector<MonitorInfo> monitors{left, right};

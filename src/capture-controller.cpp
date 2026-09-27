@@ -1,5 +1,6 @@
 #include "capture-controller.hpp"
 #include "monitor-selector.hpp"
+#include "window-selector.hpp"
 #include <obs-frontend-api.h>
 #include <obs-module.h>
 
@@ -26,20 +27,29 @@ bool CaptureController::prepare(const CaptureTarget &selection, bool cursor)
     auto *collision = obs_get_source_by_name(sceneName);
     if (collision) { obs_source_release(collision); return false; }
     target = selection;
+    const bool window = target.kind == CaptureKind::Window;
+    if (window && !WindowSelector::stillValid(target)) return false;
     previous = obs_frontend_get_current_scene();
     if (!previous) return false;
     auto *data = obs_data_create();
     obs_data_set_string(data, "monitor_id", target.monitor.id.toUtf8().constData());
     obs_data_set_int(data, "method", 0);
     obs_data_set_bool(data, "capture_cursor", cursor);
-    source = obs_source_create_private("monitor_capture", "__obs_quick_record_capture__", data);
+    if (window) {
+        obs_data_set_string(data, "window", target.windowValue.toUtf8().constData());
+        obs_data_set_bool(data, "cursor", cursor);
+        obs_data_set_bool(data, "client_area", true);
+        obs_data_set_bool(data, "capture_audio", false);
+        obs_data_set_int(data, "priority", 0); // WINDOW_PRIORITY_TITLE, see window-helpers.h.
+    }
+    source = obs_source_create_private(window ? "window_capture" : "monitor_capture", "__obs_quick_record_capture__", data);
     obs_data_release(data);
     if (!source) { cleanup(); return false; }
     auto *props = obs_source_properties(source);
-    auto *list = obs_properties_get(props, "monitor_id");
+    auto *list = obs_properties_get(props, window ? "window" : "monitor_id");
     bool listed = false;
     for (size_t i = 0; list && i < obs_property_list_item_count(list); ++i)
-        if (target.monitor.id == QString::fromUtf8(obs_property_list_item_string(list, i))) listed = true;
+        if ((window ? target.windowValue : target.monitor.id) == QString::fromUtf8(obs_property_list_item_string(list, i))) listed = true;
     obs_properties_destroy(props);
     if (!listed) { cleanup(); return false; }
     scene = obs_scene_create(sceneName);
