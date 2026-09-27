@@ -19,6 +19,9 @@ add_library(obs-quick-record MODULE
   src/quick-record-controller.cpp
   src/hotkey-manager.cpp
   src/capture-controller.cpp
+  src/settings.cpp
+  src/settings-window.cpp
+  src/quick-record-overlay.cpp
 )
 target_include_directories(obs-quick-record PRIVATE "${OBS_SOURCE_DIR}/libobs" "${OBS_SOURCE_DIR}/frontend/api" "${CMAKE_CURRENT_BINARY_DIR}")
 target_link_libraries(obs-quick-record PRIVATE "${OBS_LIBRARY}" "${OBS_FRONTEND_LIBRARY}" Qt6::Widgets dwmapi)
