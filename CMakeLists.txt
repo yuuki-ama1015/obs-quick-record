@@ -25,6 +25,7 @@ add_library(obs-quick-record MODULE
   src/monitor-selector.cpp
   src/region-selector.cpp
   src/window-selector.cpp
+  src/recording-indicator.cpp
 )
 target_include_directories(obs-quick-record PRIVATE "${OBS_SOURCE_DIR}/libobs" "${OBS_SOURCE_DIR}/frontend/api" "${CMAKE_CURRENT_BINARY_DIR}")
 target_link_libraries(obs-quick-record PRIVATE "${OBS_LIBRARY}" "${OBS_FRONTEND_LIBRARY}" Qt6::Widgets dwmapi)

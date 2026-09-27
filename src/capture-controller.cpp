@@ -40,7 +40,7 @@ bool CaptureController::prepare(const CaptureTarget &selection, bool cursor)
         obs_data_set_bool(data, "cursor", cursor);
         obs_data_set_bool(data, "client_area", true);
         obs_data_set_bool(data, "capture_audio", false);
-        obs_data_set_int(data, "priority", 0); // WINDOW_PRIORITY_TITLE, see window-helpers.h.
+        obs_data_set_int(data, "priority", 1); // WINDOW_PRIORITY_TITLE, see window-helpers.h.
     }
     source = obs_source_create_private(window ? "window_capture" : "monitor_capture", "__obs_quick_record_capture__", data);
     obs_data_release(data);

@@ -7,7 +7,12 @@ HotkeyManager::HotkeyManager(QObject *parent, std::function<void()> action)
     id = obs_hotkey_register_frontend("obs-quick-record.toggle", obs_module_text("Hotkey"), callback, this);
     blog(LOG_INFO, "OBS Quick Record: hotkey registered");
 }
-HotkeyManager::~HotkeyManager() { obs_hotkey_unregister(id); }
+HotkeyManager::~HotkeyManager() { shutdown(); }
+void HotkeyManager::shutdown()
+{
+    if (id != OBS_INVALID_HOTKEY_ID) obs_hotkey_unregister(id);
+    id = OBS_INVALID_HOTKEY_ID;
+}
 void HotkeyManager::callback(void *data, obs_hotkey_id, obs_hotkey_t *, bool pressed)
 {
     auto *self = static_cast<HotkeyManager *>(data);
@@ -27,6 +32,7 @@ void HotkeyManager::load(obs_data_t *settings)
 }
 void HotkeyManager::save(obs_data_t *settings) const
 {
+    if (id == OBS_INVALID_HOTKEY_ID) return;
     auto *bindings = obs_hotkey_save(id);
     obs_data_set_array(settings, "hotkey", bindings);
     obs_data_array_release(bindings);

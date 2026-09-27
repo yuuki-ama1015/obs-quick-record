@@ -61,19 +61,46 @@ void QuickRecordController::onEvent(obs_frontend_event event)
 {
     if (event == OBS_FRONTEND_EVENT_FINISHED_LOADING) {
         CaptureController::removeStaleScene();
+    } else if (event == OBS_FRONTEND_EVENT_RECORDING_STARTING && !requested) {
+        externalRecording = true;
+        if (state != QuickRecordState::Idle || pending) finish();
     } else if (event == OBS_FRONTEND_EVENT_RECORDING_STARTED && pending && requested) {
         pending = false;
         state = QuickRecordState::Recording;
         startTimeout.stop();
+        if (settings.indicator) indicator.start(overlay.target().monitor);
+        const auto &target = overlay.target();
+        obs_data_set_string(settings.data, "lastMonitor", target.monitor.id.toUtf8().constData());
+        if (settings.rememberRegion && target.kind == CaptureKind::Region) {
+            auto *region = obs_data_create();
+            obs_data_set_int(region, "x", target.physical.x());
+            obs_data_set_int(region, "y", target.physical.y());
+            obs_data_set_int(region, "width", target.physical.width());
+            obs_data_set_int(region, "height", target.physical.height());
+            obs_data_set_int(region, "monitorIndex", target.monitor.index);
+            obs_data_set_string(region, "monitorId", target.monitor.id.toUtf8().constData());
+            obs_data_set_obj(settings.data, "lastRegion", region);
+            obs_data_release(region);
+        }
+        hotkey.save(settings.data);
+        settings.save();
         blog(LOG_INFO, "OBS Quick Record: recording started");
     } else if (event == OBS_FRONTEND_EVENT_RECORDING_STOPPED) {
+        externalRecording = false;
         blog(LOG_INFO, "OBS Quick Record: recording stopped");
         finish();
     } else if (event == OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN || event == OBS_FRONTEND_EVENT_EXIT) {
         shuttingDown = true;
+        hotkey.save(settings.data);
+        hotkey.shutdown();
+        settings.save();
+        delete settingsWindow;
         finish();
     } else if (event == OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGING) {
-        finish();
+        if (state == QuickRecordState::Recording) capture.stop();
+        else finish();
+    } else if (event == OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED && !pending && state == QuickRecordState::Idle) {
+        CaptureController::removeStaleScene();
     }
 }
 void QuickRecordController::notify(const char *key)
@@ -90,11 +117,12 @@ void QuickRecordController::toggle()
 {
     if (shuttingDown) return;
     if (state == QuickRecordState::Recording) { capture.stop(); return; }
-    if (pending) return;
-    if (obs_frontend_recording_active()) { notify("AlreadyRecording"); return; }
+    if (pending) { if (requested) capture.stop(); else finish(); return; }
+    if (externalRecording || obs_frontend_recording_active()) { notify("AlreadyRecording"); return; }
     if (obs_frontend_streaming_active() || obs_frontend_replay_buffer_active() || obs_frontend_virtualcam_active()) { notify("OtherOutput"); return; }
     if (settings.foregroundSafety && GetAncestor(GetForegroundWindow(), GA_ROOTOWNER) == obs_frontend_get_main_window_handle()) return;
     if (state != QuickRecordState::Idle) return;
+    if (settingsWindow) settingsWindow->close();
     state = QuickRecordState::Selecting;
     overlay.open();
     blog(LOG_INFO, "OBS Quick Record: selector opened");
@@ -102,13 +130,14 @@ void QuickRecordController::toggle()
 void QuickRecordController::begin()
 {
     if (pending || state != QuickRecordState::ReadyToRecord) return;
-    if (obs_frontend_recording_active()) { finish(); notify("AlreadyRecording"); return; }
+    if (externalRecording || obs_frontend_recording_active()) { finish(); notify("AlreadyRecording"); return; }
+    if (obs_frontend_streaming_active() || obs_frontend_replay_buffer_active() || obs_frontend_virtualcam_active()) { finish(); notify("OtherOutput"); return; }
     overlay.hide();
     pending = true;
     if (!capture.prepare(overlay.target(), settings.cursor)) { finish(); notify("StartFailed"); return; }
     prepareTimer.start(50);
     startTimeout.start(10000);
-    blog(LOG_INFO, "OBS Quick Record: recording requested");
+    blog(LOG_INFO, "OBS Quick Record: capture preparation started");
 }
 void QuickRecordController::showSettings()
 {
@@ -127,6 +156,7 @@ void QuickRecordController::finish()
     prepareTimer.stop();
     countdown.stop();
     overlay.hide();
+    indicator.stop();
     capture.cleanup(settings.restoreScene);
     requested = false;
     pending = false;

@@ -6,6 +6,7 @@
 #include "hotkey-manager.hpp"
 #include "settings.hpp"
 #include "quick-record-overlay.hpp"
+#include "recording-indicator.hpp"
 #include <QPointer>
 class QAction;
 class SettingsWindow;
@@ -33,6 +34,8 @@ private:
     QTimer countdown;
     QTimer prepareTimer;
     bool requested = false;
+    bool externalRecording = false;
+    RecordingIndicator indicator;
     int seconds = 0;
     QuickRecordOverlay overlay;
     QPointer<SettingsWindow> settingsWindow;
