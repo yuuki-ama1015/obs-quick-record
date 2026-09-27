@@ -31,6 +31,8 @@ private:
     HotkeyManager hotkey;
     QTimer startTimeout;
     QTimer countdown;
+    QTimer prepareTimer;
+    bool requested = false;
     int seconds = 0;
     QuickRecordOverlay overlay;
     QPointer<SettingsWindow> settingsWindow;

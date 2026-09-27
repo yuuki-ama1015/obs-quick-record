@@ -6,6 +6,15 @@
 QuickRecordController::QuickRecordController() : hotkey(this, [this] { toggle(); })
 {
     hotkey.load(settings.data);
+    connect(&overlay, &QuickRecordOverlay::selectionReset, this, [this] { countdown.stop(); state = QuickRecordState::Selecting; });
+    connect(&prepareTimer, &QTimer::timeout, this, [this] {
+        if (obs_frontend_recording_active()) { finish(); notify("AlreadyRecording"); return; }
+        if (!capture.ready()) return;
+        prepareTimer.stop();
+        requested = true;
+        if (!capture.start()) { finish(); notify("StartFailed"); return; }
+        blog(LOG_INFO, "OBS Quick Record: recording requested");
+    });
     startTimeout.setSingleShot(true);
     connect(&startTimeout, &QTimer::timeout, this, [this] {
         if (pending && !obs_frontend_recording_active()) { finish(); notify("StartFailed"); }
@@ -50,7 +59,9 @@ void QuickRecordController::frontendEvent(obs_frontend_event event, void *data)
 }
 void QuickRecordController::onEvent(obs_frontend_event event)
 {
-    if (event == OBS_FRONTEND_EVENT_RECORDING_STARTED && pending) {
+    if (event == OBS_FRONTEND_EVENT_FINISHED_LOADING) {
+        CaptureController::removeStaleScene();
+    } else if (event == OBS_FRONTEND_EVENT_RECORDING_STARTED && pending && requested) {
         pending = false;
         state = QuickRecordState::Recording;
         startTimeout.stop();
@@ -81,6 +92,7 @@ void QuickRecordController::toggle()
     if (state == QuickRecordState::Recording) { capture.stop(); return; }
     if (pending) return;
     if (obs_frontend_recording_active()) { notify("AlreadyRecording"); return; }
+    if (obs_frontend_streaming_active() || obs_frontend_replay_buffer_active() || obs_frontend_virtualcam_active()) { notify("OtherOutput"); return; }
     if (settings.foregroundSafety && GetAncestor(GetForegroundWindow(), GA_ROOTOWNER) == obs_frontend_get_main_window_handle()) return;
     if (state != QuickRecordState::Idle) return;
     state = QuickRecordState::Selecting;
@@ -93,7 +105,8 @@ void QuickRecordController::begin()
     if (obs_frontend_recording_active()) { finish(); notify("AlreadyRecording"); return; }
     overlay.hide();
     pending = true;
-    if (!capture.start()) { finish(); notify("StartFailed"); return; }
+    if (!capture.prepare(overlay.target(), settings.cursor)) { finish(); notify("StartFailed"); return; }
+    prepareTimer.start(50);
     startTimeout.start(10000);
     blog(LOG_INFO, "OBS Quick Record: recording requested");
 }
@@ -111,9 +124,11 @@ void QuickRecordController::showSettings()
 void QuickRecordController::finish()
 {
     startTimeout.stop();
+    prepareTimer.stop();
     countdown.stop();
     overlay.hide();
-    capture.cleanup();
+    capture.cleanup(settings.restoreScene);
+    requested = false;
     pending = false;
     state = QuickRecordState::Idle;
 }

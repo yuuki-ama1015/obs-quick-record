@@ -1,55 +1,158 @@
 #include "quick-record-overlay.hpp"
+#include "monitor-selector.hpp"
 #include "settings.hpp"
 #include <QApplication>
+#include <QEvent>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QPainter>
 #include <QPushButton>
-#include <QScreen>
 #include <QVBoxLayout>
-QuickRecordOverlay::QuickRecordOverlay() : QWidget(nullptr, Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint)
-{
-    setAttribute(Qt::WA_TranslucentBackground);
-    setFocusPolicy(Qt::StrongFocus);
-    auto *layout = new QVBoxLayout(this);
-    auto *bar = new QHBoxLayout;
-    bar->addStretch();
-    for (const char *key : {"Region", "Window", "Monitor", "Settings", "Cancel"}) {
-        auto *button = new QPushButton(text(key));
-        button->setMinimumHeight(40);
-        button->setAutoDefault(false);
-        bar->addWidget(button);
-        if (QString::fromLatin1(key) == "Settings") connect(button, &QPushButton::clicked, this, &QuickRecordOverlay::settingsRequested);
-        else if (QString::fromLatin1(key) == "Cancel") connect(button, &QPushButton::clicked, this, &QuickRecordOverlay::canceled);
+#include <QWidget>
+#include <windows.h>
+
+class QuickRecordOverlay::Surface : public QWidget {
+public:
+    QuickRecordOverlay &owner;
+    MonitorInfo monitor;
+    QLabel *label;
+    Surface(QuickRecordOverlay &owner, MonitorInfo monitor)
+        : QWidget(nullptr, Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint), owner(owner), monitor(monitor)
+    {
+        setAttribute(Qt::WA_TranslucentBackground);
+        setFocusPolicy(Qt::StrongFocus);
+        setMouseTracking(true);
+        auto *layout = new QVBoxLayout(this);
+        auto *bar = new QHBoxLayout;
+        bar->addStretch();
+        auto button = [&](const char *key, auto action) {
+            auto *b = new QPushButton(text(key));
+            b->setMinimumHeight(40);
+            b->setAutoDefault(false);
+            connect(b, &QPushButton::clicked, &owner, action);
+            bar->addWidget(b);
+        };
+        button("Region", [&owner] { owner.chooseMode(CaptureKind::Region); });
+        button("Window", [&owner] { owner.chooseMode(CaptureKind::Window); });
+        button("Monitor", [&owner] { owner.chooseMode(CaptureKind::Monitor); });
+        button("Settings", [&owner] { emit owner.settingsRequested(); });
+        button("Cancel", [&owner] { emit owner.canceled(); });
+        bar->addStretch();
+        layout->addLayout(bar);
+        label = new QLabel;
+        label->setAlignment(Qt::AlignCenter);
+        label->setWordWrap(true);
+        label->setStyleSheet("color:white; background:#252525; padding:12px;");
+        label->setMaximumWidth(750);
+        layout->addWidget(label, 0, Qt::AlignHCenter);
+        layout->addStretch();
+        setGeometry(monitor.screen->geometry()); // Qt logical pixels.
     }
-    bar->addStretch();
-    layout->addLayout(bar);
-    label = new QLabel(text("SelectHint"));
-    label->setAlignment(Qt::AlignCenter);
-    label->setStyleSheet("color:white; background:#252525; padding:12px;");
-    layout->addWidget(label, 0, Qt::AlignHCenter);
-    layout->addStretch();
+    QRectF localRect(const QRect &physical) const
+    {
+        // Subtract the physical monitor origin BEFORE scaling to local logical pixels.
+        return QRectF((physical.x() - monitor.physical.x()) * double(width()) / monitor.physical.width(),
+                      (physical.y() - monitor.physical.y()) * double(height()) / monitor.physical.height(),
+                      physical.width() * double(width()) / monitor.physical.width(),
+                      physical.height() * double(height()) / monitor.physical.height());
+    }
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.fillRect(rect(), QColor(0,0,0,95));
+        if (owner.selected.valid()) {
+            auto selection = localRect(owner.selected.physical);
+            p.setCompositionMode(QPainter::CompositionMode_Source);
+            p.fillRect(selection, QColor(0,0,0,1)); // Nonzero alpha preserves mouse hit testing.
+            p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+            p.setPen(QPen(QColor("#ff5252"), 3));
+            p.drawRect(selection.adjusted(1,1,-1,-1));
+        }
+    }
+    void mousePressEvent(QMouseEvent *e) override { if (e->button() == Qt::LeftButton) owner.press(); }
+    void mouseReleaseEvent(QMouseEvent *e) override { if (e->button() == Qt::LeftButton) owner.release(); }
+};
+QuickRecordOverlay::QuickRecordOverlay()
+{
+    connect(&hoverTimer, &QTimer::timeout, this, &QuickRecordOverlay::hover);
+    qApp->installEventFilter(this);
 }
+QuickRecordOverlay::~QuickRecordOverlay() { qApp->removeEventFilter(this); }
 void QuickRecordOverlay::open()
 {
-    setGeometry(QApplication::primaryScreen()->geometry());
-    label->setText(text("SelectHint"));
-    show(); raise(); activateWindow(); setFocus();
+    hide();
+    surfaces.clear();
+    monitors = MonitorSelector::enumerate();
+    ready = false;
+    selected = {};
+    mode = CaptureKind::Monitor;
+    status = text("SelectHint");
+    for (const auto &monitor : monitors) {
+        auto surface = std::make_unique<Surface>(*this, monitor);
+        surface->show();
+        SetWindowDisplayAffinity(reinterpret_cast<HWND>(surface->winId()), WDA_EXCLUDEFROMCAPTURE);
+        surfaces.push_back(std::move(surface));
+    }
+    if (surfaces.empty()) { emit canceled(); return; }
+    auto *focus = surfaces.front().get();
+    const auto position = MonitorSelector::cursor();
+    for (auto &surface : surfaces) if (surface->monitor.physical.contains(position)) focus = surface.get();
+    focus->raise(); focus->activateWindow(); focus->setFocus();
+    hoverTimer.start(16);
+    repaint();
 }
-void QuickRecordOverlay::message(const QString &value) { label->setText(value); }
-void QuickRecordOverlay::keyPressEvent(QKeyEvent *event)
+void QuickRecordOverlay::hide()
 {
-    if (event->isAutoRepeat()) return;
-    if (event->key() == Qt::Key_Escape) emit canceled();
-    else if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) emit confirmed();
-    else QWidget::keyPressEvent(event);
+    hoverTimer.stop();
+    for (auto &surface : surfaces) surface->hide();
 }
-void QuickRecordOverlay::mouseReleaseEvent(QMouseEvent *event)
+void QuickRecordOverlay::message(const QString &value) { status = value; repaint(); }
+bool QuickRecordOverlay::eventFilter(QObject *object, QEvent *event)
 {
-    if (event->button() == Qt::LeftButton) { message(text("ReadyHint")); emit selectionReady(); }
+    auto *widget = qobject_cast<QWidget *>(object);
+    bool ours = false;
+    for (const auto &surface : surfaces)
+        if (surface->isVisible() && widget && widget->window() == surface.get()) ours = true;
+    if (!ours || event->type() != QEvent::KeyPress) return false;
+    auto *key = static_cast<QKeyEvent *>(event);
+    if (key->isAutoRepeat()) return false;
+    if (key->key() == Qt::Key_Escape) { emit canceled(); return true; }
+    if (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter) {
+        if (ready) emit confirmed();
+        return true;
+    }
+    return false;
 }
-void QuickRecordOverlay::paintEvent(QPaintEvent *)
+void QuickRecordOverlay::chooseMode(CaptureKind value)
 {
-    QPainter painter(this);
-    painter.fillRect(rect(), QColor(0, 0, 0, 90));
+    mode = value;
+    ready = false;
+    selected = {};
+    status = text("SelectHint");
+    emit selectionReset();
+    repaint();
+}
+void QuickRecordOverlay::hover()
+{
+    if (ready) return;
+    if (mode == CaptureKind::Monitor) selected = MonitorSelector::at(MonitorSelector::cursor(), monitors);
+    repaint();
+}
+void QuickRecordOverlay::press()
+{
+    ready = false;
+    emit selectionReset();
+    hover();
+}
+void QuickRecordOverlay::release()
+{
+    if (!selected.valid()) return;
+    ready = true;
+    status = selected.title + "\n" + QString("%1 × %2\n").arg(selected.physical.width()).arg(selected.physical.height()) + text("ReadyHint");
+    repaint();
+    emit selectionReady();
+}
+void QuickRecordOverlay::repaint()
+{
+    for (auto &surface : surfaces) { surface->label->setText(status); surface->update(); }
 }
