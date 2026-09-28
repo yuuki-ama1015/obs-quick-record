@@ -33,7 +33,7 @@ QtやOBSのDLLをプラグインフォルダーへ追加する必要はありま
 
 Enterは選択画面にフォーカスがあるときだけ有効です。既定ではOBSが前面のときにホットキーで選択画面を開きません。Quick Recordが開始した録画の停止は、OBSが前面でも可能です。既存の別録画は引き継ぎません。
 
-WindowsのSnipping Toolなどと既定キーが競合する場合は、OBSの「設定 → ホットキー → Quick Record」で変更してください。OBS Hotkey APIを使うため、OSのショートカットを専有・上書きしません。
+Windows 11では既定の`Win + Shift + R`がSnipping Tool録画に割り当てられています。実機試験でもSnipping Toolが開き、Quick Recordは起動しませんでした。競合する環境では、OBSの「設定 → ホットキー → Quick Record」で別のキーに変更してください。OBS Hotkey APIはOSのショートカットを専有・上書きしません。
 
 選択画面の設定ボタン、またはOBSの「ツール → Quick Record 設定」から設定できます。設定画面は独立ウィンドウです。即時開始と3秒カウントダウンは明示的に選択した場合のみ有効です。
 

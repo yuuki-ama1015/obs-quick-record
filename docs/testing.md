@@ -26,9 +26,13 @@ OBS設定でCtrl+Shift+F10へ割り当てた試験用ホットキーをUI自動�
 
 2026-09-28のUI自動入力試験では、OBSのホットキー設定画面に製品既定のWin+Shift+Rが表示され、Quick Recordの登録ログも確認しました。しかし、この組合せを送るとWindows標準のSnipping Tool録画UIが起動し、Quick Recordの選択UIは開きませんでした。Microsoftの案内でもWin+Shift+RはSnipping Toolの録画ショートカットです（[操作方法](https://support.microsoft.com/en-us/windows/apps/use-snipping-tool-to-capture-screenshots)）。OBS設定ダイアログが残っていた試行もあったため、閉じた後に再試験しましたが結果は同じでした。
 
+同日、ユーザーが実物のキーボードでもWin+Shift+Rを1回押した結果、Snipping Toolが開きました。起動中の分離QA用OBSログには対応する`selector opened`も録画開始もありません。これにより、このWindows環境で製品既定キーによるQuick Record起動は受入失敗と判定します。OBS Hotkey APIはWindows予約キーの所有権を奪う手段ではありません。WindowsはWinキーを含む組合せをOS用に予約すると明記しています（[RegisterHotKey](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerhotkey)）。
+
 切り分けとして、分離QA環境でQuick RecordをF9、OBS標準の録画開始をF8へ一時変更しました。別アプリ前面・OBS最小化中にUI自動入力したF8/F9はどちらも反応しませんでした。一方、OBS前面でF8を送るとOBS標準録画が開始し、Auto Stopが静止5秒で停止、Quick RecordもSTOPPEDイベントを受信しました。さらにOBS前面時の開始抑止を一時的にOFFにすると、F9でQuick Recordの`selector opened`ログを確認しました。したがってF9の登録とコールバックは動作しますが、この自動入力がOBSバックグラウンドのHotkey監視に届くことは確認できません。実物のキーボードでの動作可否も、この結果だけでは判断できません。Quick Recordの選択UIは独立したQtツールウィンドウで、使用中のUI操作手段から対象として取得できず、選択・Enter・録画開始の試験は未完了です。QA環境のF8/F9割り当てと開始抑止OFFは試験後に解除しました。
 
 Windowsで確認できたポリシーは、Win+Shift+RだけでなくWin+EやWin+RなどWinキーのショートカット全体を無効にします（[Microsoft Learn](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-admx-windowsexplorer#admx-windowsexplorer-nowindowshotkeys)）。この広い設定の適用は自動レビューで拒否されたため行っていません。`NoWinKeys`値は未設定で、Win+Shift+RをQuick Recordへ届ける実録画テストは未完了です。
+
+副作用の少ない暫定策は、OBSのホットキー設定でWindowsに予約されていないキーをQuick Recordへ割り当て、残りの録画経路を検証することです。製品既定のWin+Shift+RをWindows 11上で確実に使うには、OBS Hotkey APIだけでは不足します。OSのWinキー全体を止める設定、Snipping Toolのアンインストール、外部の常駐リマッパーをMVPの必須条件にはしません。キー組合せだけを扱う実装変更は、Windows上での実証とアンロード時の安全性を確認してから別途判断します。
 
 Studio Modeでのクロップ確定順序、実際のProgram側Captureの準備待ち、frontend破棄前のcallback解除を追加修正し、ビルドしました。Quick Recordホットキーから開始した録画、手動停止、Auto Stop後の一時シーンcleanupと元シーン復元、最終修正版の録画中終了確認は未完了です。
 
