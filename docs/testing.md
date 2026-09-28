@@ -13,15 +13,22 @@
 | obs-auto-stopと同時読み込み | 成功。両プラグインのloadとAuto Stopドック登録をログで確認 |
 | OBS Hotkey登録 | OBS設定画面にQuick Recordが表示され、試験用Ctrl+Shift+F10が復元されることを確認 |
 | 独立設定画面 | Toolsメニューから表示し、日本語表示・既定のチェック状態・キャンセルを確認 |
+| OBS標準Window Capture | 標準ソース設定からQA用ウィンドウを選択し、4色の映像をOBSプレビューと録画フレームで確認。1920×1080出力内でソース外が黒くなることも確認 |
+| OBS録画・Auto Stop・停止イベント | OBS標準の録画ボタンで開始し、静止5秒のAuto Stop停止を確認。Quick Recordログにも同時刻の`recording stopped`を確認 |
+| 検証動画 | `work/recordings/2026-09-28 20-19-25.mkv`。ffprobeでH.264 1920×1080、AAC、5.366秒を確認。末尾フレームを目視確認 |
 | Idle状態でのOBS終了 | 13:40:36起動の試験セッションでmodule unload、正常終了、OBSログのmemory leaks: 0を確認 |
 
-自動操作の短いキー入力ではバックグラウンドのホットキーを発火できませんでした。OBSのWindows側はGetAsyncKeyStateを25ms周期で監視していますが、原因が入力時間にあるかは未確定です。実キーでの確認が必要です。製品の既定値はWin+Shift+Rのままです。
+OBS標準Window Captureを使ったテスト映像では、4色の対象ウィンドウを1920×1080の既存Canvasに配置して録画しました。この検証ではソースをOBS UIから手動でシーンに追加し、OBS標準の録画ボタンで開始しています。Quick Recordによるソース準備・シーン切替を通した映像ではありません。
 
-Studio Modeでのクロップ確定順序、実際のProgram側Captureの準備待ち、frontend破棄前のcallback解除を追加修正し、ビルドしました。この最終修正版の録画実操作と終了確認は未完了です。
+Auto Stopのログでは20:19:25に静止検出を開始し、5秒間の無変化後に録画停止を要求、20:19:31に停止しました。同じ時刻の`OBS Quick Record: recording stopped`ログにより、他経路で始まった録画の標準STOPPEDイベントもQuick Recordが受け取ることを確認しました。この試験だけではQuick Record用一時シーン・ソースの後処理や元シーン復元を確認できていません。
+
+OBS設定でCtrl+Shift+F10へ割り当てた試験用ホットキーをUI自動入力で送りましたが、選択UIは開きませんでした。OBSのWindows側はGetAsyncKeyStateを25ms周期で監視します。短い合成入力が原因かは未確定で、実キーでの確認が必要です。製品の既定値はWin+Shift+Rのままです。
+
+Studio Modeでのクロップ確定順序、実際のProgram側Captureの準備待ち、frontend破棄前のcallback解除を追加修正し、ビルドしました。Quick Recordホットキーから開始した録画、手動停止、Auto Stop後の一時シーンcleanupと元シーン復元、最終修正版の録画中終了確認は未完了です。
 
 CTestは制限された実行環境から起動すると0xc0000135で失敗しました。同じEXEの直接実行、および通常のWindows環境でのCTestは成功しています。テスト時のDLL探索先にはOBS配布物のbin/64bitを使用します。
 
-最後のUI試験は、検証用ウィンドウを再取得しても `failed to activate captured window` となり継続できませんでした。録画映像、外部停止後の復元、録画中の終了安全性は確認済みとして扱いません。
+Quick Recordの選択UIはまだ起動できていません。したがってQuick Record経由の録画映像、外部停止後の復元、録画中の終了安全性は確認済みとして扱いません。
 
 ## 手動受入手順
 
@@ -47,7 +54,7 @@ CTestは制限された実行環境から起動すると0xc0000135で失敗し�
 
 ## 未実行の項目
 
-- 上記の録画を伴う受入手順、既定のWin+Shift+Rの実キー確認。
+- Quick Record選択UIから開始する録画・手動停止と後処理、および既定のWin+Shift+Rの実キー確認。
 - 実機の異種DPI・複数モニター、Windows 10、OBS 32.2.2以外の32.x。
 - GitHub Actions上での実行。ワークフローは追加済みですが、GitHubへの反映はまだ行っていません。
 
