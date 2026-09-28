@@ -24,7 +24,9 @@ Auto Stopのログでは20:19:25に静止検出を開始し、5秒間の無変�
 
 OBS設定でCtrl+Shift+F10へ割り当てた試験用ホットキーをUI自動入力で送りましたが、選択UIは開きませんでした。OBSのWindows側はGetAsyncKeyStateを25ms周期で監視します。短い合成入力が原因かは未確定です。
 
-2026-09-28の実キー試験では、OBSのホットキー設定画面に製品既定のWin+Shift+Rが表示され、Quick Recordの登録ログも確認しました。しかし、この組合せを押すとWindows標準のSnipping Tool録画UIが起動し、Quick Recordの選択UIは開きませんでした。Microsoftの案内でもWin+Shift+RはSnipping Toolの録画ショートカットです（[操作方法](https://support.microsoft.com/en-us/windows/apps/use-snipping-tool-to-capture-screenshots)）。
+2026-09-28のUI自動入力試験では、OBSのホットキー設定画面に製品既定のWin+Shift+Rが表示され、Quick Recordの登録ログも確認しました。しかし、この組合せを送るとWindows標準のSnipping Tool録画UIが起動し、Quick Recordの選択UIは開きませんでした。Microsoftの案内でもWin+Shift+RはSnipping Toolの録画ショートカットです（[操作方法](https://support.microsoft.com/en-us/windows/apps/use-snipping-tool-to-capture-screenshots)）。OBS設定ダイアログが残っていた試行もあったため、閉じた後に再試験しましたが結果は同じでした。
+
+切り分けとして、分離QA環境でQuick RecordをF9、OBS標準の録画開始をF8へ一時変更しました。別アプリ前面・OBS最小化中にUI自動入力したF8/F9はどちらも反応しませんでした。一方、OBS前面でF8を送るとOBS標準録画が開始し、Auto Stopが静止5秒で停止、Quick RecordもSTOPPEDイベントを受信しました。さらにOBS前面時の開始抑止を一時的にOFFにすると、F9でQuick Recordの`selector opened`ログを確認しました。したがってF9の登録とコールバックは動作しますが、この自動入力がOBSバックグラウンドのHotkey監視に届くことは確認できません。実物のキーボードでの動作可否も、この結果だけでは判断できません。Quick Recordの選択UIは独立したQtツールウィンドウで、使用中のUI操作手段から対象として取得できず、選択・Enter・録画開始の試験は未完了です。QA環境のF8/F9割り当てと開始抑止OFFは試験後に解除しました。
 
 Windowsで確認できたポリシーは、Win+Shift+RだけでなくWin+EやWin+RなどWinキーのショートカット全体を無効にします（[Microsoft Learn](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-admx-windowsexplorer#admx-windowsexplorer-nowindowshotkeys)）。この広い設定の適用は自動レビューで拒否されたため行っていません。`NoWinKeys`値は未設定で、Win+Shift+RをQuick Recordへ届ける実録画テストは未完了です。
 
@@ -32,7 +34,7 @@ Studio Modeでのクロップ確定順序、実際のProgram側Captureの準備�
 
 CTestは制限された実行環境から起動すると0xc0000135で失敗しました。同じEXEの直接実行、および通常のWindows環境でのCTestは成功しています。テスト時のDLL探索先にはOBS配布物のbin/64bitを使用します。
 
-Quick Recordの選択UIはまだ起動できていません。したがってQuick Record経由の録画映像、外部停止後の復元、録画中の終了安全性は確認済みとして扱いません。
+Quick Recordの選択UIを開くコールバックまでは確認しました。選択操作以降のQuick Record経由の録画映像、外部停止後の復元、録画中の終了安全性は確認済みとして扱いません。
 
 ## 手動受入手順
 
