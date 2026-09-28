@@ -36,6 +36,8 @@ install(TARGETS obs-quick-record RUNTIME DESTINATION obs-quick-record/bin/64bit 
 install(DIRECTORY data/ DESTINATION obs-quick-record/data)
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(capture-target WIN32 tests/capture-target.cpp)
+  target_link_libraries(capture-target PRIVATE Qt6::Widgets)
   add_executable(geometry-check tests/geometry-check.cpp src/region-selector.cpp src/window-selector.cpp)
   target_include_directories(geometry-check PRIVATE src)
   target_link_libraries(geometry-check PRIVATE Qt6::Widgets dwmapi)
