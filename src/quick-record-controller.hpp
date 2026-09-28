@@ -27,6 +27,7 @@ private:
     QuickRecordState state = QuickRecordState::Idle;
     bool pending = false;
     bool shuttingDown = false;
+    bool frontendRegistered = false;
     Settings settings;
     CaptureController capture;
     HotkeyManager hotkey;

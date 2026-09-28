@@ -41,11 +41,12 @@ QuickRecordController::QuickRecordController() : hotkey(this, [this] { toggle();
     toolsAction = static_cast<QAction *>(obs_frontend_add_tools_menu_qaction(obs_module_text("Settings")));
     connect(toolsAction, &QAction::triggered, this, &QuickRecordController::showSettings);
     obs_frontend_add_event_callback(frontendEvent, this);
+    frontendRegistered = true;
 }
 QuickRecordController::~QuickRecordController()
 {
     shuttingDown = true;
-    obs_frontend_remove_event_callback(frontendEvent, this);
+    if (frontendRegistered) obs_frontend_remove_event_callback(frontendEvent, this);
     hotkey.save(settings.data);
     settings.save();
     delete settingsWindow;
@@ -91,6 +92,10 @@ void QuickRecordController::onEvent(obs_frontend_event event)
         finish();
     } else if (event == OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN || event == OBS_FRONTEND_EVENT_EXIT) {
         shuttingDown = true;
+        // OBS dispatches callbacks in reverse order, so removing this callback here is safe.
+        // Its frontend API is destroyed before module_unload.
+        if (frontendRegistered) obs_frontend_remove_event_callback(frontendEvent, this);
+        frontendRegistered = false;
         hotkey.save(settings.data);
         hotkey.shutdown();
         settings.save();
