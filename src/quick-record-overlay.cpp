@@ -21,6 +21,7 @@ public:
     Surface(QuickRecordOverlay &owner, MonitorInfo monitor)
         : QWidget(nullptr, Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint), owner(owner), monitor(monitor)
     {
+        setWindowTitle(text("Title") + " — " + monitor.device);
         setAttribute(Qt::WA_TranslucentBackground);
         setFocusPolicy(Qt::StrongFocus);
         setMouseTracking(true);
@@ -91,7 +92,7 @@ void QuickRecordOverlay::open()
         auto surface = std::make_unique<Surface>(*this, monitor);
         surface->show();
         surface->setCursor(Qt::CrossCursor);
-        SetWindowDisplayAffinity(reinterpret_cast<HWND>(surface->winId()), WDA_EXCLUDEFROMCAPTURE);
+        // Selection UI is hidden before preparing capture. Only the recording indicator needs display affinity.
         surfaces.push_back(std::move(surface));
     }
     if (surfaces.empty()) { emit canceled(); return; }
