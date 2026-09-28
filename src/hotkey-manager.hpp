@@ -9,6 +9,8 @@ public:
     ~HotkeyManager() override;
     void load(obs_data_t *settings);
     void save(obs_data_t *settings) const;
+    obs_key_combination_t primaryBinding() const;
+    void setPrimaryBinding(obs_key_combination_t binding);
     void shutdown();
 private:
     static void callback(void *, obs_hotkey_id, obs_hotkey_t *, bool pressed);

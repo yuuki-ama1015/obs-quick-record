@@ -27,6 +27,7 @@ jobs:
           cmake --build build
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           $env:PATH = "$pwd\.deps\runtime\bin\64bit;$env:PATH"
+          $env:QT_PLUGIN_PATH = "$pwd\.deps\qt\plugins"
           ctest --test-dir build --output-on-failure
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Package

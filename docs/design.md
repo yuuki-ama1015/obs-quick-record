@@ -20,7 +20,7 @@ Windows physical desktop pixels are the selection boundary contract. Each monito
 
 Restore OFF cannot retain a live temporary capture (contradicts mandatory cleanup). It means preserve another regular scene if the user switched during recording; if Quick Record is still Program, return to the saved scene before removing it. This safety fallback is explained in Settings.
 
-Win+Shift+R can conflict with Windows Snipping Tool. OBS hotkeys cannot reserve a Windows shortcut; support remapping through OBS Settings / Hotkeys and persist OBS binding arrays. Do not override Windows registrations.
+Win+Shift+R conflicts with Windows Snipping Tool on the QA PC. The default is Alt+R. The independent Quick Record Settings window edits only this plugin's select/stop hotkey through the OBS Hotkey API and persists its binding array; OBS Settings / Hotkeys remains another route. OBS hotkeys cannot reserve Windows shortcuts. Do not override Windows registrations. Existing saved hotkeys take precedence over the default.
 
 ## Phases
 

@@ -127,7 +127,7 @@ void QuickRecordController::toggle()
     if (obs_frontend_streaming_active() || obs_frontend_replay_buffer_active() || obs_frontend_virtualcam_active()) { notify("OtherOutput"); return; }
     if (settings.foregroundSafety && GetAncestor(GetForegroundWindow(), GA_ROOTOWNER) == obs_frontend_get_main_window_handle()) return;
     if (state != QuickRecordState::Idle) return;
-    if (settingsWindow) settingsWindow->close();
+    if (settingsWindow && settingsWindow->isVisible()) return;
     state = QuickRecordState::Selecting;
     overlay.open();
     blog(LOG_INFO, "OBS Quick Record: selector opened");
@@ -149,7 +149,7 @@ void QuickRecordController::showSettings()
     if (shuttingDown || pending || state == QuickRecordState::Recording) return;
     finish();
     if (!settingsWindow) {
-        settingsWindow = new SettingsWindow(settings);
+        settingsWindow = new SettingsWindow(settings, hotkey);
         settingsWindow->setAttribute(Qt::WA_DeleteOnClose);
         connect(settingsWindow, &QDialog::accepted, this, [this] { hotkey.save(settings.data); settings.save(); });
     }

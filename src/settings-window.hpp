@@ -1,7 +1,8 @@
 #pragma once
 #include <QDialog>
 #include "settings.hpp"
+#include "hotkey-manager.hpp"
 class SettingsWindow : public QDialog {
 public:
-    explicit SettingsWindow(Settings &settings);
+    SettingsWindow(Settings &settings, HotkeyManager &hotkey);
 };

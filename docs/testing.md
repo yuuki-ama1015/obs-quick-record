@@ -1,6 +1,10 @@
 # 検証記録
 
-更新: 2026-09-28。**MVP受入完了ではありません。** 実装済みであることと、実際の録画で確認できたことを区別しています。
+更新: 2026-09-29。**MVP受入完了ではありません。** 実装済みであることと、実際の録画で確認できたことを区別しています。
+
+Alt+Rを新規設定時の既定キーとし、独立設定画面にQuick Recordの呼び出し・停止キー編集欄を追加しました。変更はOBS標準のHotkey APIで適用し、専用settings.jsonに保存します。MSVCビルドとgeometry-checkは通過しました。Alt+Rの実キー入力、独立画面からの変更と再起動後の復元は実機未確認です。既存の保存済みキーは尊重するため、自動でAlt+Rへ置き換えません。
+
+2026-09-29: hotkey-checkを追加し、実際のSettingsWindowとHotkeyManagerをlibobs上で動かす自動テストに成功しました。Alt+Rの初期値、キー入力、キャンセル時の維持、保存時の変更、JSON往復後の復元、別ホットキーへの非干渉を確認しています。設定データはテスト専用のメモリー内で扱い、実機のグローバルキー入力とOBS再起動を再現するものではありません。CTestは2/2成功。Qt SDKに含まれるminimalプラットフォームを使用し、QT_PLUGIN_PATHはSDKのpluginsディレクトリーに指定します。
 
 ## 確認済み
 
@@ -11,7 +15,7 @@
 | geometry-check | CTest成功。矩形の逆方向ドラッグ、負の原点、モニターまたぎ拒否、100/125/150/200%変換、window設定値のエスケープ |
 | OBSでの読み込み | 分離したOBS 32.2.2ポータブル環境で成功 |
 | obs-auto-stopと同時読み込み | 成功。両プラグインのloadとAuto Stopドック登録をログで確認 |
-| OBS Hotkey登録 | OBS設定画面にQuick Recordが表示され、製品既定のWin+Shift+Rが復元されることを確認。試験用Ctrl+Shift+F10も個別に表示を確認 |
+| OBS Hotkey登録（変更前） | OBS設定画面にQuick Recordが表示され、旧製品既定のWin+Shift+Rが復元されることを確認。試験用Ctrl+Shift+F10も個別に表示を確認 |
 | 独立設定画面 | Toolsメニューから表示し、日本語表示・既定のチェック状態・キャンセルを確認 |
 | OBS標準Window Capture | 標準ソース設定からQA用ウィンドウを選択し、4色の映像をOBSプレビューと録画フレームで確認。1920×1080出力内でソース外が黒くなることも確認 |
 | OBS録画・Auto Stop・停止イベント | OBS標準の録画ボタンで開始し、静止5秒のAuto Stop停止を確認。Quick Recordログにも同時刻の`recording stopped`を確認 |
@@ -32,7 +36,7 @@ OBS設定でCtrl+Shift+F10へ割り当てた試験用ホットキーをUI自動�
 
 Windowsで確認できたポリシーは、Win+Shift+RだけでなくWin+EやWin+RなどWinキーのショートカット全体を無効にします（[Microsoft Learn](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-admx-windowsexplorer#admx-windowsexplorer-nowindowshotkeys)）。この広い設定の適用は自動レビューで拒否されたため行っていません。`NoWinKeys`値は未設定で、Win+Shift+RをQuick Recordへ届ける実録画テストは未完了です。
 
-副作用の少ない暫定策は、OBSのホットキー設定でWindowsに予約されていないキーをQuick Recordへ割り当て、残りの録画経路を検証することです。製品既定のWin+Shift+RをWindows 11上で確実に使うには、OBS Hotkey APIだけでは不足します。OSのWinキー全体を止める設定、Snipping Toolのアンインストール、外部の常駐リマッパーをMVPの必須条件にはしません。キー組合せだけを扱う実装変更は、Windows上での実証とアンロード時の安全性を確認してから別途判断します。
+この競合を受け、既定キーをAlt+Rに変更し、OBS本体を開かずに独立設定画面から変更できるようにしました。OSのWinキー全体を止める設定、Snipping Toolのアンインストール、外部の常駐リマッパーはMVPの必須条件にしません。Alt+Rでの実機動作とアンロード時の安全性は引き続き確認が必要です。
 
 Studio Modeでのクロップ確定順序、実際のProgram側Captureの準備待ち、frontend破棄前のcallback解除を追加修正し、ビルドしました。Quick Recordホットキーから開始した録画、手動停止、Auto Stop後の一時シーンcleanupと元シーン復元、最終修正版の録画中終了確認は未完了です。
 
@@ -64,7 +68,7 @@ Quick Recordの選択UIを開くコールバックまでは確認しました。
 
 ## 未実行の項目
 
-- Quick Record選択UIから開始する録画・手動停止と後処理、およびWindowsのSnipping Toolと競合しない状態での既定Win+Shift+R実キー確認。
+- Quick Record選択UIから開始する録画・手動停止と後処理、および新既定Alt+Rの実キー確認。独立設定画面での変更、保存、再起動後の復元。
 - 実機の異種DPI・複数モニター、Windows 10、OBS 32.2.2以外の32.x。
 - GitHub Actions上での実行。ワークフローは追加済みですが、GitHubへの反映はまだ行っていません。
 
