@@ -65,6 +65,9 @@ bool CaptureController::prepare(const CaptureTarget &selection, bool cursor)
     obs_sceneitem_set_alignment(item, OBS_ALIGN_TOP | OBS_ALIGN_LEFT);
     obs_sceneitem_set_bounds_type(item, OBS_BOUNDS_STRETCH);
     obs_sceneitem_set_bounds(item, &bounds);
+    // Warm capture before switching: Studio Mode may snapshot the scene's item transforms.
+    obs_source_inc_showing(source);
+    warming = true;
     settled.invalidate();
     cropped = false;
     return true;
@@ -73,6 +76,20 @@ bool CaptureController::ready()
 {
     if (!scene || !source) return false;
     auto *sceneSource = obs_scene_get_source(scene);
+    if (!obs_source_get_width(source) || !obs_source_get_height(source)) return false;
+    if (!cropped && target.kind == CaptureKind::Region) {
+        // Display Capture pixels must agree with the selected physical monitor geometry.
+        if (obs_source_get_width(source) != static_cast<uint32_t>(target.monitor.physical.width()) ||
+            obs_source_get_height(source) != static_cast<uint32_t>(target.monitor.physical.height())) return false;
+        const auto local = target.physical.translated(-target.monitor.physical.topLeft());
+        obs_sceneitem_crop crop{};
+        crop.left = local.x(); crop.top = local.y();
+        crop.right = target.monitor.physical.width() - local.x() - local.width();
+        crop.bottom = target.monitor.physical.height() - local.y() - local.height();
+        obs_sceneitem_set_crop(item, &crop); // OBS source pixels, not Qt logical pixels.
+        cropped = true;
+        blog(LOG_INFO, "OBS Quick Record: region selected x=%d y=%d w=%d h=%d", target.physical.x(), target.physical.y(), target.physical.width(), target.physical.height());
+    }
     if (!switched) {
         // obs_scene_create emits a signal; frontend adds its list item on a queued GUI call.
         obs_frontend_source_list scenes{};
@@ -93,24 +110,21 @@ bool CaptureController::ready()
     obs_source_release(current);
     auto *transition = obs_frontend_get_current_transition();
     bool active = transition && obs_transition_is_active(transition);
+    auto *program = transition ? obs_transition_get_active_source(transition) : nullptr;
+    bool programReady = false;
+    if (program && QString::fromUtf8(obs_source_get_name(program)) == sceneName) {
+        // Studio Mode's private copy can contain a separate Window Capture instance.
+        obs_scene_enum_items(obs_scene_from_source(program), [](obs_scene_t *, obs_sceneitem_t *item, void *data) {
+            auto *capture = obs_sceneitem_get_source(item);
+            *static_cast<bool *>(data) = obs_source_get_width(capture) && obs_source_get_height(capture);
+            return false; // Our scene has exactly one capture item.
+        }, &programReady);
+    }
+    obs_source_release(program);
     obs_source_release(transition);
-    if (!currentMatches || active || obs_source_get_width(source) == 0 || obs_source_get_height(source) == 0) {
+    if (!currentMatches || active || !programReady) {
         settled.invalidate();
         return false;
-    }
-    if (!cropped && target.kind == CaptureKind::Region) {
-        // Display Capture pixels must agree with the selected physical monitor geometry.
-        if (obs_source_get_width(source) != static_cast<uint32_t>(target.monitor.physical.width()) ||
-            obs_source_get_height(source) != static_cast<uint32_t>(target.monitor.physical.height())) return false;
-        const auto local = target.physical.translated(-target.monitor.physical.topLeft());
-        obs_sceneitem_crop crop{};
-        crop.left = local.x(); crop.top = local.y();
-        crop.right = target.monitor.physical.width() - local.x() - local.width();
-        crop.bottom = target.monitor.physical.height() - local.y() - local.height();
-        obs_sceneitem_set_crop(item, &crop); // OBS source pixels, not Qt logical pixels.
-        cropped = true;
-        settled.invalidate();
-        blog(LOG_INFO, "OBS Quick Record: region selected x=%d y=%d w=%d h=%d", target.physical.x(), target.physical.y(), target.physical.width(), target.physical.height());
     }
     if (!settled.isValid()) settled.start();
     return settled.elapsed() >= 250;
@@ -141,6 +155,8 @@ void CaptureController::cleanup(bool restore)
         scene = nullptr;
         item = nullptr;
     }
+    if (warming) obs_source_dec_showing(source);
+    warming = false;
     obs_source_release(source); source = nullptr;
     obs_source_release(previous); previous = nullptr;
     switched = false;
