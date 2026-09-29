@@ -22,3 +22,9 @@ QRectF RegionSelector::toLogical(const QRect &physical, const QRect &monitor, co
                   physical.width() * double(logicalSize.width()) / monitor.width(),
                   physical.height() * double(logicalSize.height()) / monitor.height());
 }
+QPoint RegionSelector::toPhysical(const QPointF &logical, const QRect &monitor, const QSize &logicalSize)
+{
+    if (monitor.isEmpty() || logicalSize.isEmpty()) return {};
+    return {monitor.x() + qRound(logical.x() * monitor.width() / logicalSize.width()),
+            monitor.y() + qRound(logical.y() * monitor.height() / logicalSize.height())};
+}

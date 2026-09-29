@@ -26,8 +26,8 @@ private:
     friend class Surface;
     void chooseMode(CaptureKind);
     void hover();
-    void press();
-    void release();
+    void press(const QPoint &physical);
+    void release(const QPoint &physical);
     void repaint();
     std::vector<MonitorInfo> monitors;
     std::vector<std::unique_ptr<Surface>> surfaces;

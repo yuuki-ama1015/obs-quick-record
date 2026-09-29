@@ -4,4 +4,5 @@
 namespace RegionSelector {
 CaptureTarget between(QPoint start, QPoint end, const std::vector<MonitorInfo> &monitors);
 QRectF toLogical(const QRect &physical, const QRect &monitor, const QSize &logicalSize);
+QPoint toPhysical(const QPointF &logical, const QRect &monitor, const QSize &logicalSize);
 }

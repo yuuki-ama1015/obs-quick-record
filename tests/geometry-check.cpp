@@ -24,6 +24,8 @@ int main(int argc, char **argv)
         QRect monitor(-2400, -600, 2400, 1200), selected(-2100, -300, 1200, 600);
         auto logical = RegionSelector::toLogical(selected, monitor, QSize(int(2400/dpi), int(1200/dpi)));
         assert(logical == QRectF(300/dpi, 300/dpi, 1200/dpi, 600/dpi));
+        assert(RegionSelector::toPhysical(logical.topLeft(), monitor, QSize(int(2400/dpi), int(1200/dpi))) == selected.topLeft());
+        assert(RegionSelector::toPhysical(logical.bottomRight(), monitor, QSize(int(2400/dpi), int(1200/dpi))) == selected.topLeft() + QPoint(selected.width(), selected.height()));
     }
     std::cout << "physical coordinates, reverse drag, cross-monitor rejection, 100/125/150/200% passed\n";
 }

@@ -7,6 +7,7 @@
 #include <QEvent>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -69,8 +70,12 @@ public:
             p.drawRect(selection.adjusted(1,1,-1,-1));
         }
     }
-    void mousePressEvent(QMouseEvent *e) override { if (e->button() == Qt::LeftButton) owner.press(); }
-    void mouseReleaseEvent(QMouseEvent *e) override { if (e->button() == Qt::LeftButton) owner.release(); }
+    QPoint physicalPoint(const QMouseEvent *e) const
+    {
+        return RegionSelector::toPhysical(e->position(), monitor.physical, size());
+    }
+    void mousePressEvent(QMouseEvent *e) override { if (e->button() == Qt::LeftButton) owner.press(physicalPoint(e)); }
+    void mouseReleaseEvent(QMouseEvent *e) override { if (e->button() == Qt::LeftButton) owner.release(physicalPoint(e)); }
 };
 QuickRecordOverlay::QuickRecordOverlay()
 {
@@ -148,16 +153,17 @@ void QuickRecordOverlay::hover()
     }
     repaint();
 }
-void QuickRecordOverlay::press()
+void QuickRecordOverlay::press(const QPoint &physical)
 {
     ready = false;
-    if (mode == CaptureKind::Region) { dragging = true; dragStart = MonitorSelector::cursor(); }
+    if (mode == CaptureKind::Region) { dragging = true; dragStart = physical; }
     emit selectionReset();
     hover();
 }
-void QuickRecordOverlay::release()
+void QuickRecordOverlay::release(const QPoint &physical)
 {
-    hover();
+    if (mode == CaptureKind::Region) selected = RegionSelector::between(dragStart, physical, monitors);
+    else hover();
     dragging = false;
     if (!selected.valid()) {
         status = text(mode == CaptureKind::Region && selected.physical.width() >= 2 && selected.physical.height() >= 2 ? "CrossMonitor" : "SelectHint");
