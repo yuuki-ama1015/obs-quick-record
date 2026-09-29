@@ -18,6 +18,8 @@ Quick Recordの全画面モードで`DISPLAY1`をクリックし、Enterでモ�
 
 OBS再起動後、ユーザーが最小化状態から実キーAlt+Rで範囲選択画面を開き、483×311を選択してEnterで録画を開始し、Alt+Rで手動停止できたと報告しました。`work/recordings/2026-09-29 22-00-13.mkv`はH.264/AAC、1920×1080、4.733秒です。ログではAuto Stopの静止カウントが3/5の時点で停止しており、Auto Stopによる停止要求はありません。Quick RecordはSTOPPEDを受信し、元シーンへ復帰して一時シーンを削除しました。OBSが録画中ずっと最小化されていたかは、画面を通した連続観察では確認していません。
 
+録画中のOBS終了試験では、テスト用プロファイルのAuto Stop静止時間を一時的に5秒から30秒へ延長しました。Quick Recordでモニターを選択してEnterで録画し、OBSの「録画終了」表示中にAlt+F4から「アクティブな出力」の終了確認を承認しました。Auto Stopの停止要求より前に通常終了し、ログには元シーンへの復帰、録画ファイルの確定、両プラグインのアンロード、メモリーリーク0件が残っています。`work/recordings/2026-09-29 22-07-53.mkv`はH.264/AAC、1920×1080、14.1秒として読み取れました。再起動後のシーン一覧に一時シーンはなく、録画も停止状態です。Auto Stop静止時間は5秒、Quick Recordの前面時開始禁止はONに戻しました。これは通常終了の1回の実機試験であり、強制終了や他のライフタイム状態まで確認したものではありません。
+
 ## 確認済み
 
 | 項目 | 結果 |
@@ -35,6 +37,7 @@ OBS再起動後、ユーザーが最小化状態から実キーAlt+Rで範囲選
 | 出力映像 | 265×248の選択範囲が1920×1080へ拡大されたフレームを目視確認 |
 | OBS最小化からの範囲録画 | 実キーAlt+R、250×200選択、Enter開始、Auto Stop停止、前シーン復帰、一時シーン削除、出力映像を確認。録画中の最小化維持は連続観察できていない |
 | 最小化状態からの手動停止 | 実キーAlt+Rで開始・停止できたとユーザーが報告。Auto Stop停止要求前にSTOPPED、前シーン復帰、一時シーン削除をログで確認 |
+| 録画中のOBS通常終了 | 終了確認を承認して正常終了。録画ファイル確定、プラグインアンロード、メモリーリーク0件、再起動後の一時シーン不在を確認 |
 | Quick Recordウィンドウ録画 | メモ帳選択、Enter開始、Window Captureの出力映像、Auto Stop停止、前シーン復帰、一時シーン削除を確認 |
 | Quick Recordモニター録画 | DISPLAY1選択、Enter開始、Monitor Captureの出力映像、Auto Stop停止、前シーン復帰、一時シーン削除を確認 |
 | 検証動画 | `work/recordings/2026-09-28 20-19-25.mkv`。ffprobeでH.264 1920×1080、AAC、5.366秒を確認。末尾フレームを目視確認 |
@@ -54,13 +57,13 @@ OBS設定でCtrl+Shift+F10へ割り当てた試験用ホットキーをUI自動�
 
 Windowsで確認できたポリシーは、Win+Shift+RだけでなくWin+EやWin+RなどWinキーのショートカット全体を無効にします（[Microsoft Learn](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-admx-windowsexplorer#admx-windowsexplorer-nowindowshotkeys)）。この広い設定の適用は自動レビューで拒否されたため行っていません。`NoWinKeys`値は未設定で、Win+Shift+RをQuick Recordへ届ける実録画テストは未完了です。
 
-この競合を受け、既定キーをAlt+Rに変更し、OBS本体を開かずに独立設定画面から変更できるようにしました。OSのWinキー全体を止める設定、Snipping Toolのアンインストール、外部の常駐リマッパーはMVPの必須条件にしません。OBS最小化中の手動停止と録画中のアンロード安全性は引き続き確認が必要です。
+この競合を受け、既定キーをAlt+Rに変更し、OBS本体を開かずに独立設定画面から変更できるようにしました。OSのWinキー全体を止める設定、Snipping Toolのアンインストール、外部の常駐リマッパーはMVPの必須条件にしません。
 
-Studio Modeでのクロップ確定順序、実際のProgram側Captureの準備待ち、frontend破棄前のcallback解除を追加修正し、ビルドしました。録画中のOBS終了確認は未完了です。
+Studio Modeでのクロップ確定順序、実際のProgram側Captureの準備待ち、frontend破棄前のcallback解除を追加修正し、ビルドしました。
 
 CTestは制限された実行環境から起動すると0xc0000135で失敗しました。同じEXEの直接実行、および通常のWindows環境でのCTestは成功しています。テスト時のDLL探索先にはOBS配布物のbin/64bitを使用します。
 
-Quick Record経由の範囲録画とAuto Stop後の復元を確認しました。録画中のOBS終了安全性は確認済みとして扱いません。
+Quick Record経由の範囲録画とAuto Stop後の復元、録画中のOBS通常終了を確認しました。強制終了やStudio Modeなど別条件の終了安全性は未確認です。
 
 ## 手動受入手順
 
