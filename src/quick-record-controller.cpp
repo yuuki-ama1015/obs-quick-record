@@ -130,6 +130,7 @@ void QuickRecordController::toggle()
     if (settingsWindow && settingsWindow->isVisible()) return;
     state = QuickRecordState::Selecting;
     overlay.open();
+    if (state != QuickRecordState::Selecting) { notify("NoMonitor"); return; }
     blog(LOG_INFO, "OBS Quick Record: selector opened");
 }
 void QuickRecordController::begin()

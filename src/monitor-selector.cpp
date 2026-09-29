@@ -22,8 +22,10 @@ std::vector<MonitorInfo> MonitorSelector::enumerate()
         monitor.physical = QRect(info.rcMonitor.left, info.rcMonitor.top,
             info.rcMonitor.right - info.rcMonitor.left, info.rcMonitor.bottom - info.rcMonitor.top);
         monitor.index = static_cast<int>(list.size());
+        // QScreen::name() is a friendly label on Windows, not \\.\DISPLAYn.
+        // Qt scales screen sizes for DPI but preserves their physical origins.
         for (auto *screen : QGuiApplication::screens())
-            if (screen->name() == monitor.device) monitor.screen = screen;
+            if (screen->geometry().topLeft() == monitor.physical.topLeft()) monitor.screen = screen;
         if (monitor.screen) list.push_back(monitor);
         return TRUE;
     }, reinterpret_cast<LPARAM>(&result));

@@ -19,7 +19,7 @@ public:
     MonitorInfo monitor;
     QLabel *label;
     Surface(QuickRecordOverlay &owner, MonitorInfo monitor)
-        : QWidget(nullptr, Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint), owner(owner), monitor(monitor)
+        : QWidget(nullptr, Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint), owner(owner), monitor(monitor)
     {
         setWindowTitle(text("Title") + " — " + monitor.device);
         setAttribute(Qt::WA_TranslucentBackground);

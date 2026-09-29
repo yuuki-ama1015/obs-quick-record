@@ -2,9 +2,11 @@
 
 更新: 2026-09-29。**MVP受入完了ではありません。** 実装済みであることと、実際の録画で確認できたことを区別しています。
 
-Alt+Rを新規設定時の既定キーとし、独立設定画面にQuick Recordの呼び出し・停止キー編集欄を追加しました。変更はOBS標準のHotkey APIで適用し、専用settings.jsonに保存します。MSVCビルドとgeometry-checkは通過しました。Alt+Rの実キー入力、独立画面からの変更と再起動後の復元は実機未確認です。既存の保存済みキーは尊重するため、自動でAlt+Rへ置き換えません。
+Alt+Rを新規設定時の既定キーとし、独立設定画面にQuick Recordの呼び出し・停止キー編集欄を追加しました。変更はOBS標準のHotkey APIで適用し、専用settings.jsonに保存します。MSVCビルドとCTest 2件、独立画面からのキー変更・保存・再表示を確認しました。再起動後の設定JSONとプラグイン読込も確認しました。物理キーボードによるAlt+R入力は未確認です。既存の保存済みキーは尊重するため、自動でAlt+Rへ置き換えません。
 
 2026-09-29: hotkey-checkを追加し、実際のSettingsWindowとHotkeyManagerをlibobs上で動かす自動テストに成功しました。Alt+Rの初期値、キー入力、キャンセル時の維持、保存時の変更、JSON往復後の復元、別ホットキーへの非干渉を確認しています。設定データはテスト専用のメモリー内で扱い、実機のグローバルキー入力とOBS再起動を再現するものではありません。CTestは2/2成功。Qt SDKに含まれるminimalプラットフォームを使用し、QT_PLUGIN_PATHはSDKのpluginsディレクトリーに指定します。
+
+同日の実機試験ではOBSを最小化した状態でAlt+Rが届き、`selector opened`が記録されましたが、選択画面は表示されませんでした。原因はWin32の`\\.\DISPLAY1`とQtの`BenQ EX2510`を名前で一致させようとして、モニター列挙結果が空になったことです。Qtの画面左上座標とWin32の物理モニター左上座標で対応付けるよう修正し、実際のWindows画面で範囲／ウィンドウ／全画面のオーバーレイ表示を確認しました。歯車から独立設定画面を開き、Alt+R→Ctrl+Shift+F10→Alt+Rの入力・保存とJSONへの反映を確認しました。OBS前面時の開始防止もONに戻しました。自動入力によるOBS最小化中のAlt+R再現と、対象選択から録画終了までの一連の実機確認は未完了です。
 
 ## 確認済み
 
@@ -16,7 +18,7 @@ Alt+Rを新規設定時の既定キーとし、独立設定画面にQuick Record
 | OBSでの読み込み | 分離したOBS 32.2.2ポータブル環境で成功 |
 | obs-auto-stopと同時読み込み | 成功。両プラグインのloadとAuto Stopドック登録をログで確認 |
 | OBS Hotkey登録（変更前） | OBS設定画面にQuick Recordが表示され、旧製品既定のWin+Shift+Rが復元されることを確認。試験用Ctrl+Shift+F10も個別に表示を確認 |
-| 独立設定画面 | Toolsメニューから表示し、日本語表示・既定のチェック状態・キャンセルを確認 |
+| 独立設定画面 | Toolsメニューと選択画面の歯車から表示。Alt+R→Ctrl+Shift+F10→Alt+Rの変更・保存、前面時の開始防止ONへの復帰を確認 |
 | OBS標準Window Capture | 標準ソース設定からQA用ウィンドウを選択し、4色の映像をOBSプレビューと録画フレームで確認。1920×1080出力内でソース外が黒くなることも確認 |
 | OBS録画・Auto Stop・停止イベント | OBS標準の録画ボタンで開始し、静止5秒のAuto Stop停止を確認。Quick Recordログにも同時刻の`recording stopped`を確認 |
 | 検証動画 | `work/recordings/2026-09-28 20-19-25.mkv`。ffprobeでH.264 1920×1080、AAC、5.366秒を確認。末尾フレームを目視確認 |
@@ -36,13 +38,13 @@ OBS設定でCtrl+Shift+F10へ割り当てた試験用ホットキーをUI自動�
 
 Windowsで確認できたポリシーは、Win+Shift+RだけでなくWin+EやWin+RなどWinキーのショートカット全体を無効にします（[Microsoft Learn](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-admx-windowsexplorer#admx-windowsexplorer-nowindowshotkeys)）。この広い設定の適用は自動レビューで拒否されたため行っていません。`NoWinKeys`値は未設定で、Win+Shift+RをQuick Recordへ届ける実録画テストは未完了です。
 
-この競合を受け、既定キーをAlt+Rに変更し、OBS本体を開かずに独立設定画面から変更できるようにしました。OSのWinキー全体を止める設定、Snipping Toolのアンインストール、外部の常駐リマッパーはMVPの必須条件にしません。Alt+Rでの実機動作とアンロード時の安全性は引き続き確認が必要です。
+この競合を受け、既定キーをAlt+Rに変更し、OBS本体を開かずに独立設定画面から変更できるようにしました。OSのWinキー全体を止める設定、Snipping Toolのアンインストール、外部の常駐リマッパーはMVPの必須条件にしません。Alt+Rでの一連の実録画とアンロード時の安全性は引き続き確認が必要です。
 
 Studio Modeでのクロップ確定順序、実際のProgram側Captureの準備待ち、frontend破棄前のcallback解除を追加修正し、ビルドしました。Quick Recordホットキーから開始した録画、手動停止、Auto Stop後の一時シーンcleanupと元シーン復元、最終修正版の録画中終了確認は未完了です。
 
 CTestは制限された実行環境から起動すると0xc0000135で失敗しました。同じEXEの直接実行、および通常のWindows環境でのCTestは成功しています。テスト時のDLL探索先にはOBS配布物のbin/64bitを使用します。
 
-Quick Recordの選択UIを開くコールバックまでは確認しました。選択操作以降のQuick Record経由の録画映像、外部停止後の復元、録画中の終了安全性は確認済みとして扱いません。
+Quick Recordの選択UI表示まで確認しました。選択操作以降のQuick Record経由の録画映像、外部停止後の復元、録画中の終了安全性は確認済みとして扱いません。
 
 ## 手動受入手順
 
@@ -68,7 +70,7 @@ Quick Recordの選択UIを開くコールバックまでは確認しました。
 
 ## 未実行の項目
 
-- Quick Record選択UIから開始する録画・手動停止と後処理、および新既定Alt+Rの実キー確認。独立設定画面での変更、保存、再起動後の復元。
+- Quick Record選択UIから開始する録画・手動停止と後処理、および新既定Alt+Rの物理キー入力確認。設定画面の再起動後表示確認。
 - 実機の異種DPI・複数モニター、Windows 10、OBS 32.2.2以外の32.x。
 - GitHub Actions上での実行。ワークフローは追加済みですが、GitHubへの反映はまだ行っていません。
 

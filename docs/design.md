@@ -18,6 +18,8 @@ All GUI and frontend changes run on the Qt GUI thread. Hotkeys queue context-bou
 
 Windows physical desktop pixels are the selection boundary contract. Each monitor gets a separate Qt overlay; convert physical offsets to local logical paint coordinates using that monitor's size ratio, never multiply virtual desktop coordinates by one global DPI factor.
 
+On Windows, `QScreen::name()` is a user-facing monitor name and may differ from Win32 `\\.\DISPLAYn`. Match Qt screens to physical Win32 monitors by their unchanged top-left screen position; Qt scales screen sizes but preserves those positions under mixed DPI. If no monitor can be mapped, selection cannot start.
+
 Restore OFF cannot retain a live temporary capture (contradicts mandatory cleanup). It means preserve another regular scene if the user switched during recording; if Quick Record is still Program, return to the saved scene before removing it. This safety fallback is explained in Settings.
 
 Win+Shift+R conflicts with Windows Snipping Tool on the QA PC. The default is Alt+R. The independent Quick Record Settings window edits only this plugin's select/stop hotkey through the OBS Hotkey API and persists its binding array; OBS Settings / Hotkeys remains another route. OBS hotkeys cannot reserve Windows shortcuts. Do not override Windows registrations. Existing saved hotkeys take precedence over the default.

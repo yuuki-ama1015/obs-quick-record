@@ -1,9 +1,16 @@
 #include "region-selector.hpp"
+#include "monitor-selector.hpp"
 #include "window-selector.hpp"
+#include <QGuiApplication>
 #include <cassert>
 #include <iostream>
-int main()
+int main(int argc, char **argv)
 {
+    QGuiApplication app(argc, argv);
+    const auto connected = MonitorSelector::enumerate();
+    assert(!connected.empty());
+    for (const auto &monitor : connected)
+        assert(monitor.screen && monitor.screen->geometry().topLeft() == monitor.physical.topLeft());
     assert(WindowSelector::encode("a:#3A", "class:1", "test.exe") == "a#3A#223A:class#3A1:test.exe");
     MonitorInfo left; left.id = "left"; left.physical = {-2560, -240, 2560, 1440};
     MonitorInfo right; right.id = "right"; right.physical = {0, 0, 3840, 2160};
