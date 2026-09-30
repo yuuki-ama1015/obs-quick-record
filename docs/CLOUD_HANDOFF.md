@@ -6,10 +6,10 @@
 
 1. この文書を含む **ソースZIP** をクラウドCodexの作業に添付して展開する。Git履歴を引き継げる環境では、併せて作成した **Git bundle** からcloneする。DLL配布ZIPにはソースが入っていないため、コードの引き継ぎには使わない。
 2. 展開後、`README.md`、`docs/design.md`、`docs/testing.md`、この文書を読む。実装の主な入口は `src/plugin-main.cpp` と `src/quick-record-controller.cpp`。
-3. 展開したソースは、引き継ぎ前の検証済みコミット `49842b7` にこの文書を追加した状態。ソースZIPはGitのコミットから作成しており、未追跡のQA用OBS、録画、SDK、ビルド成果物は含まない。Git履歴はZIPに含まれず、Git bundleには含まれる。
+3. 改訂2のソースは、初回引き継ぎコミット `d21b5de` 以後の実機検証とStudio Mode表示復帰修正を含む。ソースZIPはGitのコミットから作成し、未追跡のQA用OBS、録画、SDK、ビルド成果物は含めない。Git履歴はZIPに含まれず、Git bundleには含まれる。対応コミットとSHA-256は各成果物のmanifestを参照。
 4. 現時点でローカルリポジトリには **Git remoteが設定されていない**。クラウド環境がこのPCのローカルパスを直接参照できるとは想定しない。GitHubで継続する場合は、ユーザーが指定したリポジトリと公開範囲を確認し、ソース・履歴を移す。
 
-ローカルの引き継ぎ用ファイルはソースリポジトリの**親**ディレクトリに置く。`obs-quick-record-source-handoff-2026-09-30.zip` はソース一式、`obs-quick-record-handoff-2026-09-30.bundle` はGit履歴。DLL配布候補 `obs-quick-record-0.1.0-dev-windows-x64-qa-2026-09-30-r2.zip` は別物。GitHub Actionsは `.github/workflows/build-windows.yml` に用意済みだが、GitHub上での実行は未確認。
+ローカルの引き継ぎ用ファイルはソースリポジトリの**親**ディレクトリに置く。最新版 `obs-quick-record-source-handoff-2026-09-30-r2.zip` はソース一式、`obs-quick-record-handoff-2026-09-30-r2.bundle` はGit履歴。DLL配布候補 `obs-quick-record-0.1.0-dev-windows-x64-qa-2026-09-30-r3.zip` は別物。初回のファイルは旧版として保存。GitHub Actionsは `.github/workflows/build-windows.yml` に用意済みだが、GitHub上での実行は未確認。
 
 ## 目的と守るべき境界
 
@@ -26,15 +26,16 @@
 - `src/` は状態管理、Hotkey、Capture、Overlay、各Selector、独立設定画面、録画表示へ分割済み。日英ロケールとGPL-2.0を同梱。
 - Windows MSVC 14.44 / Qt 6.11.1 / OBS 32.2.2でビルド済み。`geometry-check`、`hotkey-check`、`controller-check`、`overlay-check` の4件が成功。特に状態管理テストはカウントダウン中のキャンセル、開始失敗とタイムアウト、外部停止、終了時のタイマー解除を確認した。ただし録画・Frontend・選択画面の一部境界はテスト用実装へ置換している。
 - 分離したOBS 32.2.2ポータブル環境で、OBS最小化からの実キーAlt+Rによる範囲録画、ウィンドウ録画、モニター録画、Auto Stopによる停止、手動停止、元シーン復帰、一時シーン削除、OBS通常終了時のリーク0件を確認。Studio Modeではシーン複製ON・プロパティ複製OFFで範囲とウィンドウの出力映像を確認。証拠・条件は `docs/testing.md` に記録している。
-- 配布用DLLのSHA-256（直近の実録画テストで使ったDLLと同一）: `4DEE947580B1170CE238601CB6A2C2F50B55B18725905745758875FA05A5DE23`。ビルド設定とテスト後、配布ZIPは全7ファイルを展開元と照合済み。
-- 引き継ぎ直前、分離QA用OBSは通常終了。QA設定はAlt+R、Enter確認、OBS前面時の開始禁止ON、Auto Stop静止5秒、Studio Mode OFFへ復元済み。最後のターンではカウントダウン試験の準備としてOBSを起動したが、ユーザーの引き継ぎ依頼により対象選択・録画試験は実施せず終了した。
+- 追加検証で、選択した対象のEnter前閉鎖を安全に拒否し、選択中・独立設定表示中のOBS終了でリーク0件を確認。Studio Modeのシーン複製OFFでも範囲・ウィンドウ録画を確認し、停止後のProgram名表示の残存をFrontend APIによるPreview再適用で修正した。
+- 配布用DLLのSHA-256（直近の実録画テストで使ったDLLと同一）: `685C60959EDACF3820CA9DC5BD3A6BB6A05E99DF430AA03E971E458647AC30DE`。最終修正後にビルドとCTest 4/4成功。配布ZIPの検証結果はmanifestを参照。
+- 分離QA用OBSは通常終了し、20:07:37のログでリーク0件を確認。QA設定はAlt+R、Enter確認、OBS前面時の開始禁止ON、Auto Stop静止5秒、Studio Mode OFF・シーン複製ONへ復元済み。保存Scene Collectionに一時シーン・ソースなし。
 
 ## 次に進める作業
 
 1. Windows実機上の分離OBSで、カウントダウン途中のEsc・再選択・設定表示、明示的な即時開始を確認。自動テスト成功と実機受入を混同しない。
-2. ウィンドウ選択後・Enter前に対象を閉じた場合、録画開始失敗の後処理を確認。
-3. 選択中、キャプチャ準備中、独立設定画面表示中のOBS通常終了を確認。
-4. Studio Modeのシーン複製OFFでも範囲・ウィンドウ録画と復元を確認。
+2. エンコーダなど実際の録画出力エラーの後処理を確認。対象のEnter前閉鎖は確認済み。
+3. キャプチャ準備中のOBS通常終了、強制終了後の回復を確認。選択中・独立設定表示中は確認済み。
+4. Studio Modeのプロパティ複製ONを比較。シーン複製ON/OFF・プロパティ複製OFFの録画確認は実施済み。
 5. 別の機材が使える場合は異種DPI・複数モニター、Windows 10、他のOBS 32.xを検証。これらの環境を持たないクラウド実行だけで実機合格と判定しない。
 6. 観測した不具合のみを最小限修正し、`docs/testing.md` に検証条件と結果を追記する。ビルドと必要なテストを実行し、開発版ZIPを作り直す。
 

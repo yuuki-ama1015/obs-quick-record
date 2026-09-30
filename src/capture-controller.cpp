@@ -148,6 +148,12 @@ void CaptureController::cleanup(bool restore)
             if (transition) obs_transition_set(transition, previous);
             obs_source_release(transition);
             obs_frontend_set_current_scene(previous);
+            // With Studio Mode duplication OFF, the already-restored source does not emit
+            // transition_video_stop. Reapply the unchanged preview through the frontend
+            // to refresh Program labels without a transition that swaps in our removed scene.
+            auto *preview = obs_frontend_get_current_preview_scene();
+            if (preview) obs_frontend_set_current_preview_scene(preview);
+            obs_source_release(preview);
             blog(LOG_INFO, "OBS Quick Record: previous scene restored");
         }
         obs_source_remove(obs_scene_get_source(scene));

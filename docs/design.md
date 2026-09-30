@@ -22,6 +22,8 @@ On Windows, `QScreen::name()` is a user-facing monitor name and may differ from 
 
 Restore OFF cannot retain a live temporary capture (contradicts mandatory cleanup). It means preserve another regular scene if the user switched during recording; if Quick Record is still Program, return to the saved scene before removing it. This safety fallback is explained in Settings.
 
+When restoring Program in Studio Mode, finish the transition before removing the temporary scene, then reapply the unchanged Preview using the frontend API. In OBS 32.2.2 with scene duplication OFF, pre-setting the transition to the restored source suppresses `transition_video_stop`; `TransitionFullyStopped()` does not refresh Program labels. `SetCurrentScene()` invoked by the preview API refreshes those labels. Starting a new restore transition instead can swap the removed temporary scene into Preview when swap mode is ON.
+
 Win+Shift+R conflicts with Windows Snipping Tool on the QA PC. The default is Alt+R. The independent Quick Record Settings window edits only this plugin's select/stop hotkey through the OBS Hotkey API and persists its binding array; OBS Settings / Hotkeys remains another route. OBS hotkeys cannot reserve Windows shortcuts. Do not override Windows registrations. Existing saved hotkeys take precedence over the default.
 
 ## Phases
