@@ -16,7 +16,7 @@ Canvas/output/encoders/audio devices are unchanged. Program scene switching nece
 
 Recheck other output activity on each capture preparation timer tick, before advancing readiness or requesting recording. If another output starts while capture is warming or a transition is pending, cancel preparation, restore/clean up the temporary capture, and leave the other output running. This is a GUI-thread state check, not an atomic reservation of OBS output ownership.
 
-All GUI and frontend changes run on the Qt GUI thread. Hotkeys queue context-bound calls. Unregister callbacks/hotkeys before deleting their targets. Release capture only after STOPPED or OBS shutdown.
+All GUI and frontend changes run on the Qt GUI thread. Hotkeys queue context-bound calls. Unregister callbacks/hotkeys before deleting their targets. Ignore frontend events delivered after shutdown has begun: unregistration does not discard calls already queued to Qt. OBS 32.2.2 destroys its frontend API after SCRIPTING_SHUTDOWN and EXIT, before module unload. Release capture only after STOPPED or OBS shutdown.
 
 Windows physical desktop pixels are the selection boundary contract. Each monitor gets a separate Qt overlay; convert physical offsets to local logical paint coordinates using that monitor's size ratio, never multiply virtual desktop coordinates by one global DPI factor.
 
