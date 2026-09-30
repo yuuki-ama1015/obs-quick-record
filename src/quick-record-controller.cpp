@@ -9,6 +9,7 @@ QuickRecordController::QuickRecordController() : hotkey(this, [this] { toggle();
     connect(&overlay, &QuickRecordOverlay::selectionReset, this, [this] { countdown.stop(); state = QuickRecordState::Selecting; });
     connect(&prepareTimer, &QTimer::timeout, this, [this] {
         if (obs_frontend_recording_active()) { finish(); notify("AlreadyRecording"); return; }
+        if (obs_frontend_streaming_active() || obs_frontend_replay_buffer_active() || obs_frontend_virtualcam_active()) { finish(); notify("OtherOutput"); return; }
         if (!capture.ready()) return;
         prepareTimer.stop();
         requested = true;

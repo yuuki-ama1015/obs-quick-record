@@ -219,6 +219,24 @@ int main(int argc, char **argv)
             idle();
             assert(qa.opens == 1 && qa.stops == 0);
         });
+        scenario(StartMode::Immediate, [output] {
+            qa.ready = false;
+            emit qa.overlay->selectionReady();
+            wait(150);
+            assert(qa.allocated && qa.starts == 0);
+            qa.otherOutput = output == 0;
+            qa.replay = output == 1;
+            qa.virtualCamera = output == 2;
+            wait(150); // Output started while waiting for capture frames.
+            idle();
+            assert(qa.starts == 0 && qa.stops == 0);
+            qa.otherOutput = qa.replay = qa.virtualCamera = false;
+            qa.ready = true;
+            wait(150);
+            assert(qa.starts == 0); // Canceled preparation cannot start later.
+            toggle();
+            assert(qa.opens == 2 && qa.visible);
+        });
     }
     for (int state = 0; state < 4; ++state) {
         scenario(StartMode::Countdown, [state] {
