@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cstring>
 #include <iostream>
+#include <thread>
 
 // Run the production controller, hotkey manager and settings dialog with real Qt
 // timers. Only capture/overlay/frontend boundaries are fakes: no desktop recording,
@@ -18,7 +19,7 @@ static struct {
     bool visible = false, allocated = false, recording = false, indicator = false;
     bool prepareOK = true, ready = true, startOK = true, emitStarted = true;
     bool otherOutput = false, replay = false, virtualCamera = false;
-    int opens = 0, prepares = 0, starts = 0, stops = 0, cleanups = 0;
+    int opens = 0, prepares = 0, starts = 0, stops = 0, cleanups = 0, staleCleanups = 0;
 } qa;
 
 static void event(obs_frontend_event value)
@@ -101,7 +102,7 @@ RecordingIndicator::RecordingIndicator() = default;
 void RecordingIndicator::start(const MonitorInfo &) { qa.indicator = true; }
 void RecordingIndicator::stop() { qa.indicator = false; }
 CaptureController::~CaptureController() { cleanup(); }
-void CaptureController::removeStaleScene() {}
+void CaptureController::removeStaleScene() { ++qa.staleCleanups; }
 bool CaptureController::prepare(const CaptureTarget &target, bool)
 { assert(target.valid()); ++qa.prepares; qa.allocated = true; return qa.prepareOK; }
 bool CaptureController::ready() { return qa.ready; }
@@ -255,6 +256,22 @@ int main(int argc, char **argv)
             assert(qa.starts == 0); // No late countdown/preparation callbacks.
         });
     }
+    scenario(StartMode::Confirm, [] {
+        // Already queued work can outlive callback/hotkey unregistration.
+        obs_hotkey_trigger_routed_callback(toggleId(), true);
+        std::thread([] {
+            event(OBS_FRONTEND_EVENT_FINISHED_LOADING);
+            event(OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED);
+            event(OBS_FRONTEND_EVENT_RECORDING_STOPPED);
+            event(OBS_FRONTEND_EVENT_EXIT);
+        }).join();
+        event(OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN);
+        const int cleanups = qa.cleanups;
+        QCoreApplication::processEvents();
+        assert(qa.staleCleanups == 0 && qa.cleanups == cleanups);
+        assert(qa.opens == 1 && !qa.callback);
+        idle();
+    });
     obs_shutdown();
     std::cout << "confirm/countdown/immediate, cancellation, failure, external stop and shutdown passed\n";
 }

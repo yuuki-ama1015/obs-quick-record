@@ -61,6 +61,8 @@ void QuickRecordController::frontendEvent(obs_frontend_event event, void *data)
 }
 void QuickRecordController::onEvent(obs_frontend_event event)
 {
+    // Unregistration does not remove frontend events already queued to Qt.
+    if (shuttingDown) return;
     if (event == OBS_FRONTEND_EVENT_FINISHED_LOADING) {
         CaptureController::removeStaleScene();
     } else if (event == OBS_FRONTEND_EVENT_RECORDING_STARTING && !requested) {
