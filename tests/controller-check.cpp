@@ -17,7 +17,7 @@ static struct {
     void *callbackData = nullptr;
     bool visible = false, allocated = false, recording = false, indicator = false;
     bool prepareOK = true, ready = true, startOK = true, emitStarted = true;
-    bool otherOutput = false;
+    bool otherOutput = false, replay = false, virtualCamera = false;
     int opens = 0, prepares = 0, starts = 0, stops = 0, cleanups = 0;
 } qa;
 
@@ -78,8 +78,8 @@ void obs_frontend_remove_event_callback(obs_frontend_event_cb callback, void *da
 { assert(qa.callback == callback && qa.callbackData == data); qa.callback = nullptr; }
 bool obs_frontend_recording_active() { return qa.recording; }
 bool obs_frontend_streaming_active() { return qa.otherOutput; }
-bool obs_frontend_replay_buffer_active() { return false; }
-bool obs_frontend_virtualcam_active() { return false; }
+bool obs_frontend_replay_buffer_active() { return qa.replay; }
+bool obs_frontend_virtualcam_active() { return qa.virtualCamera; }
 }
 Settings::Settings() : startMode(qa.mode), foregroundSafety(false), data(obs_data_create()) {}
 Settings::~Settings() { obs_data_release(data); }
@@ -206,13 +206,20 @@ int main(int argc, char **argv)
         qa.recording = false;
         event(OBS_FRONTEND_EVENT_RECORDING_STOPPED);
     });
-    scenario(StartMode::Confirm, [] {
-        emit qa.overlay->selectionReady();
-        qa.otherOutput = true;
-        emit qa.overlay->confirmed();
-        idle();
-        assert(qa.prepares == 0);
-    });
+    for (int output = 0; output < 3; ++output) {
+        scenario(StartMode::Confirm, [output] {
+            emit qa.overlay->selectionReady();
+            qa.otherOutput = output == 0;
+            qa.replay = output == 1;
+            qa.virtualCamera = output == 2;
+            emit qa.overlay->confirmed(); // Another output started during selection.
+            idle();
+            assert(qa.prepares == 0);
+            toggle(); // Still blocked from Idle, without touching the other output.
+            idle();
+            assert(qa.opens == 1 && qa.stops == 0);
+        });
+    }
     for (int state = 0; state < 4; ++state) {
         scenario(StartMode::Countdown, [state] {
             if (state == 1) emit qa.overlay->selectionReady();
