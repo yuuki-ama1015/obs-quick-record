@@ -6,6 +6,18 @@
 
 static constexpr const char *sceneName = "__obs_quick_record_internal__";
 static constexpr const char *ownerKey = "obs-quick-record-owned-v1";
+static constexpr const char *previousKey = "obs-quick-record-previous-scene-uuid";
+static void restoreProgram(obs_source_t *previous)
+{
+    auto *transition = obs_frontend_get_current_transition();
+    if (transition) obs_transition_set(transition, previous);
+    obs_source_release(transition);
+    obs_frontend_set_current_scene(previous);
+    // Refresh Studio Mode labels without swapping our removed scene into Preview.
+    auto *preview = obs_frontend_get_current_preview_scene();
+    if (preview) obs_frontend_set_current_preview_scene(preview);
+    obs_source_release(preview);
+}
 static bool owned(obs_source_t *source)
 {
     auto *data = obs_source_get_settings(source);
@@ -18,7 +30,38 @@ void CaptureController::removeStaleScene()
 {
     auto *old = obs_get_source_by_name(sceneName);
     if (!old) return;
-    if (owned(old)) obs_source_remove(old);
+    if (owned(old)) {
+        auto *current = obs_frontend_get_current_scene();
+        const bool needsRestore = !current || QString::fromUtf8(obs_source_get_name(current)) == sceneName;
+        obs_source_release(current);
+        if (needsRestore) {
+            auto *data = obs_source_get_settings(old);
+            auto *previous = obs_get_source_by_uuid(obs_data_get_string(data, previousKey));
+            obs_data_release(data);
+            if (previous == old || (previous && !obs_scene_from_source(previous))) {
+                obs_source_release(previous);
+                previous = nullptr;
+            }
+            // Older saved scenes have no UUID. Prefer the unchanged Studio Preview,
+            // then another user scene, rather than deleting the active Program.
+            if (!previous) previous = obs_frontend_get_current_preview_scene();
+            if (previous == old) { obs_source_release(previous); previous = nullptr; }
+            if (!previous) {
+                obs_frontend_source_list scenes{};
+                obs_frontend_get_scenes(&scenes);
+                for (size_t i = 0; i < scenes.sources.num; ++i) {
+                    if (scenes.sources.array[i] != old) { previous = obs_source_get_ref(scenes.sources.array[i]); break; }
+                }
+                obs_frontend_source_list_free(&scenes);
+            }
+            if (previous) {
+                restoreProgram(previous);
+                blog(LOG_INFO, "OBS Quick Record: recovered previous scene after interrupted capture");
+            }
+            obs_source_release(previous);
+        }
+        obs_source_remove(old);
+    }
     obs_source_release(old);
 }
 bool CaptureController::prepare(const CaptureTarget &selection, bool cursor)
@@ -56,6 +99,7 @@ bool CaptureController::prepare(const CaptureTarget &selection, bool cursor)
     if (!scene) { cleanup(); return false; }
     auto *sceneData = obs_source_get_settings(obs_scene_get_source(scene));
     obs_data_set_bool(sceneData, ownerKey, true);
+    obs_data_set_string(sceneData, previousKey, obs_source_get_uuid(previous));
     obs_data_release(sceneData);
     item = obs_scene_add(scene, source);
     if (!item) { cleanup(); return false; }
@@ -144,16 +188,7 @@ void CaptureController::cleanup(bool restore)
         obs_source_release(current);
         if (previous && !obs_source_removed(previous) && (restore || ours) && switched) {
             // Finish the transition before removing either scene. Do not change transition settings.
-            auto *transition = obs_frontend_get_current_transition();
-            if (transition) obs_transition_set(transition, previous);
-            obs_source_release(transition);
-            obs_frontend_set_current_scene(previous);
-            // With Studio Mode duplication OFF, the already-restored source does not emit
-            // transition_video_stop. Reapply the unchanged preview through the frontend
-            // to refresh Program labels without a transition that swaps in our removed scene.
-            auto *preview = obs_frontend_get_current_preview_scene();
-            if (preview) obs_frontend_set_current_preview_scene(preview);
-            obs_source_release(preview);
+            restoreProgram(previous);
             blog(LOG_INFO, "OBS Quick Record: previous scene restored");
         }
         obs_source_remove(obs_scene_get_source(scene));
