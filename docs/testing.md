@@ -211,6 +211,14 @@ Windows 11 / OBS 32.2.2の分離QA環境。Alt+R・Enter確認・開始安全設
 - 修正DLLの実機確認: ログ `2026-10-01 08-04-32.txt`。試験中だけ開始安全設定OFF、Enter確認とAuto Stop静止5秒を使用。物理座標x=15,y=80,w=265,h=240をドラッグし、Enter前には開始せず、Enter後に録画。`2026-10-01 08-05-37.mkv` はH.264/AAC、1920×1080、5.366秒。1秒地点のフレームで選択範囲のCanvas全体への拡大を確認。08:05:44.334にSTOPPEDを受信し、元シーン復帰・一時シーン削除。08:06:45.291に正常unload、08:06:45.350にメモリーリーク0件。
 - QA設定を退避コピーへ戻し、Alt+R・Enter確認・開始安全設定ON、保存Program「シーン」と一時シーンなしを確認。インストール済みの修正DLLは維持。SHA-256は `0EE163DEBEF88602A48DAE4E9564EFC5337D46D3FA67D1B902CD6B042E3D83CC`。今回の成果物は2026-10-01改訂4。実キー試験は延期のままで、準備中の実OBS終了・録画途中の実エンコーダ障害の代替検証として扱わない。
 
+## 2026-10-01 改訂4ソースZIPの新規Releaseビルド
+
+- 対象は `obs-quick-record-source-handoff-2026-10-01-r4.zip`、対応コミット `8813d51e9d53b0871b9ab42125b48f2cd4acc15b`、ZIPのSHA-256 `9FE13D56ED22370E6CF5D7B1CC640237A67193C2A02505C5359A0C391387F18B`。展開前にmanifestとの一致を確認し、展開後の全39ファイルもSHA-256を比較して一致した。
+- 存在しないことを確認した `work/clean-handoff-20261001-r4` へ新規展開。CMakeのSourceはその展開ソース、Buildは同ディレクトリ内の新しい `build/` を指定した。既存のビルドキャッシュは使っていない。MSVC 14.44 / Ninja / Qt 6.11.1 / OBS 32.2.2でReleaseビルド成功。
+- 展開ソースの終了後遅延イベントガードとワーカースレッド回帰テストを確認し、生成されたCTestを実行。**5/5成功、43.64秒**。ビルドには既知のOBSヘッダーC4201警告とテストのNDEBUG上書き警告がある。
+- 検証用Release DLLのSHA-256は `C8F50B75167CD7DE2E0AD3F529C31FAF57ACC9DBCEEF73C64E64FEDD66F4A6E1`。実機確認済みのRelWithDebInfo DLLとはビルド構成が異なる。QAインストール・配布候補ZIP・設定は変更せず、既存の `0EE163DEBEF88602A48DAE4E9564EFC5337D46D3FA67D1B902CD6B042E3D83CC` を維持した。
+- 入力情報・configure/build/CTestログ・結果は `work/clean-handoff-20261001-r4/` に保存。このPCにあるSDKとQAランタイムのDLL探索先を使用した検証であり、別PC、GitHub Actions、OBS GUI、実キー・異種DPIの追加試験ではない。
+
 ## 未完了の項目
 
 - 録画全期間のOBS最小化維持の連続目視。最小化中の起動・録画成立と途中最小化は確認済み。
