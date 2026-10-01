@@ -9,7 +9,7 @@
 3. 最新ソースは、Studio Mode表示復帰修正、終了後の一時Program復旧 `8023715`、準備中の出力競合修正 `9e4fefd`、終了後の遅延イベント抑止 `2f5ceea` と追加検証の記録を含む。ソースZIPはGitのコミットから作成し、未追跡のQA用OBS、録画、SDK、ビルド成果物は含めない。Git履歴はZIPに含まれず、Git bundleには含まれる。対応コミットとSHA-256は各成果物のmanifestを参照。
 4. 現時点でローカルリポジトリには **Git remoteが設定されていない**。クラウド環境がこのPCのローカルパスを直接参照できるとは想定しない。GitHubで継続する場合は、ユーザーが指定したリポジトリと公開範囲を確認し、ソース・履歴を移す。
 
-ローカルの引き継ぎ用ファイルはソースリポジトリの**親**ディレクトリに置く。最新版 `obs-quick-record-source-handoff-2026-10-01-r4.zip` はソース一式、`obs-quick-record-handoff-2026-10-01-r4.bundle` はGit履歴。DLL配布候補 `obs-quick-record-0.1.0-dev-windows-x64-qa-2026-10-01-r4.zip` は別物。旧版も保存。GitHub Actionsは `.github/workflows/build-windows.yml` に用意済みだが、GitHub上での実行は未確認。
+ローカルの引き継ぎ用ファイルはソースリポジトリの**親**ディレクトリに置く。最新版 `obs-quick-record-source-handoff-2026-10-01-r5.zip` はソース一式、`obs-quick-record-handoff-2026-10-01-r5.bundle` はGit履歴。DLL配布候補 `obs-quick-record-0.1.0-dev-windows-x64-qa-2026-10-01-r5.zip` は別物。旧版も保存。GitHub Actionsは `.github/workflows/build-windows.yml` に用意済みだが、GitHub上での実行は未確認。
 
 ## 目的と守るべき境界
 
@@ -41,6 +41,12 @@
 - 修正 `2f5ceea`: 終了前にQtへキューイングされたFrontendイベントを、終了後には無視する。実Qtワーカースレッドを使った回帰テストで旧処理の再実行を再現してから修正。修正DLLで範囲録画、Auto Stop停止、元シーン復帰、一時シーン削除、通常終了時のリーク0件を確認。分離QAは終了済み、Alt+R・Enter確認・開始安全設定ONへ復元済み。実OBSの終了競合や録画途中のエンコーダ障害を実機再現したという意味ではない。
 
 - 改訂4ソースZIP（`8813d51`、SHA-256 `9FE13D56ED22370E6CF5D7B1CC640237A67193C2A02505C5359A0C391387F18B`）を新しい `work/clean-handoff-20261001-r4` へ展開し、全39ファイルのハッシュ一致を確認。既存ビルドキャッシュなしでReleaseビルド成功、CTest 5/5成功（43.64秒）。このPCの既存SDKとQAランタイムを使用しており、GitHub Actionsや実機受入の追加確認ではない。検証用Release DLLは保存し、実機確認済みの配布候補DLLとQA設定は維持した。今回の変更は検証文書のみ。
+
+## デスクトップ操作なしで完了した範囲
+
+公式SDK準備スクリプト、新規SDKを使ったReleaseビルド、CTest 5/5（43.66秒）、CIと同じinstall/ZIP生成、ZIP全ファイルの整合性、DLLのx64・export・依存、日英ロケール整合性を確認済みです。デスクトップを操作せず、このPCで実行可能な開発・梱包確認は完了しました。GitHubホストでの実行はremote未設定のため未確認です。実機・別OS・別OBS版・別モニター構成の受入は別途必要です。
+
+クラウドへの貼り付け用プロンプトは [CLOUD_PROMPT.md](CLOUD_PROMPT.md) にあります。改訂5には現在の検証記録を同梱し、DLLは実機確認済みのものを維持しています。
 
 ## 次に進める作業
 

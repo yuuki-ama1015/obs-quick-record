@@ -60,6 +60,7 @@ Visual Studio 2022のx64 C++開発環境、Windows SDK、CMake 3.28以上、Ninj
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=cl "-DOBS_SOURCE_DIR=$pwd/.deps/obs-studio" "-DOBS_SDK_DIR=$pwd/.deps/sdk" "-DCMAKE_PREFIX_PATH=$pwd/.deps/qt"
 cmake --build build
 $env:PATH = "$pwd\.deps\runtime\bin\64bit;$env:PATH"
+$env:QT_PLUGIN_PATH = "$pwd\.deps\qt\plugins"
 ctest --test-dir build --output-on-failure
 cmake --install build --prefix stage
 ```

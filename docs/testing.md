@@ -219,6 +219,15 @@ Windows 11 / OBS 32.2.2の分離QA環境。Alt+R・Enter確認・開始安全設
 - 検証用Release DLLのSHA-256は `C8F50B75167CD7DE2E0AD3F529C31FAF57ACC9DBCEEF73C64E64FEDD66F4A6E1`。実機確認済みのRelWithDebInfo DLLとはビルド構成が異なる。QAインストール・配布候補ZIP・設定は変更せず、既存の `0EE163DEBEF88602A48DAE4E9564EFC5337D46D3FA67D1B902CD6B042E3D83CC` を維持した。
 - 入力情報・configure/build/CTestログ・結果は `work/clean-handoff-20261001-r4/` に保存。このPCにあるSDKとQAランタイムのDLL探索先を使用した検証であり、別PC、GitHub Actions、OBS GUI、実キー・異種DPIの追加試験ではない。
 
+## 2026-10-01 デスクトップ操作なしのCI手順・配布確認
+
+- `748168a` のソースを新しい `work/ci-pipeline-20261001/source` へ展開し、本番の `tools/prepare-sdk.ps1` を実行。OBSソースは公式GitHubから新規clone、Windows配布ZIPも新規取得。Qt ZIPは既存の公式アーカイブを新しいキャッシュへコピーし、再検証・新規展開した。OBSソースの固定コミット、OBS ZIP `4D6E40E3AB155F56B30DE517380566A206D74B63CDF5AD49AA596924768F97E1`、Qt ZIP `7C7F985711D80467BDC1795B6592275A27D5B0E5A2C7A61DB1F2C1D08D6A5579` が一致。新規の配布DLLからdumpbin/libでインポートライブラリを生成できた。
+- GitHub Actionsのconfigure/build/CTest/install/Compress-Archiveと同じシェルコマンドを実行。Source配下の新規 `.deps` にあるOBS/Qt/インポートライブラリと配布ランタイムを使用し、Releaseビルド成功、CTest **5/5成功、43.66秒**、ZIP生成成功。試験用ZIP全8ファイルのSHA-256がinstall先と一致し、DLLのPE Machineはx64（0x8664）。ログと結果は `work/ci-pipeline-20261001/` に保存。
+- 本番のCIスクリプトに修正は不要だった。READMEの手動ビルド手順へ、CIと同じ `QT_PLUGIN_PATH` の設定を追記した。Developer PowerShell/MSVC環境の準備とGitHubへの成果物アップロード処理自体は、ローカル実行で置換・未実行の境界として区別する。
+- CI試験用DLLのSHA-256は `E29D82353828B7E146C7B98B1995412DF857C53A9F1F70573A49AECF5DE65839`。OBS/Frontend、Qt、Windows、MSVCランタイムへの依存とOBSモジュールの7つのexportを確認。Auto Stop・WebSocketへのDLL依存はない。ソース/CMakeにもAuto Stop連携API・リンク依存はない。QAへこのRelease DLLは配置せず、実機確認した `0EE163DEBEF88602A48DAE4E9564EFC5337D46D3FA67D1B902CD6B042E3D83CC` を維持。
+- 日英ロケールの27キー、置換文字、コードが直接参照する22キーを検査し、一致・欠落なし。SDKスクリプトのPowerShell構文にもエラーなし。デスクトップ操作・OBS起動・QA設定変更は行っていない。
+- 最終引き継ぎは2026-10-01改訂5へ更新。実機確認済みDLLを維持し、現在の文書とクラウド用プロンプトを同梱する。GitHub remoteは未設定で、公開・push・Release作成を依頼されていないため、GitHub上のActions実行は未完了のまま。ローカル再現成功をGitHub上での合格とは扱わない。
+
 ## 未完了の項目
 
 - 録画全期間のOBS最小化維持の連続目視。最小化中の起動・録画成立と途中最小化は確認済み。
