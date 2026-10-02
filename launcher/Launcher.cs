@@ -69,7 +69,7 @@ sealed class Launcher : ApplicationContext
     }
     void ReleaseKey()
     {
-        if (ownsKey) UnregisterHotKey(window.Handle, 1);
+        if (ownsKey) { UnregisterHotKey(window.Handle, 1); Log("hotkey released"); }
         ownsKey = false; registered = "";
     }
     void Error(string message)
@@ -77,7 +77,12 @@ sealed class Launcher : ApplicationContext
         if (message == lastError) return;
         lastError = message;
         icon.ShowBalloonTip(5000, "OBS Quick Record Launcher", message, ToolTipIcon.Warning);
-        try { Directory.CreateDirectory(config); File.AppendAllText(Path.Combine(config, "launcher.log"), DateTime.Now.ToString("s") + " " + message + Environment.NewLine); } catch (IOException) {}
+        Log(message);
+    }
+    void Log(string message)
+    {
+        try { Directory.CreateDirectory(config); File.AppendAllText(Path.Combine(config, "launcher.log"), DateTime.Now.ToString("s") + " " + message + Environment.NewLine); }
+        catch (IOException) {} catch (UnauthorizedAccessException) {}
     }
     void Refresh(object sender, EventArgs args)
     {
@@ -98,6 +103,7 @@ sealed class Launcher : ApplicationContext
             if (binding[1] == 0) { registered = identity; return; }
             if (!RegisterHotKey(window.Handle, 1, binding[0] | 0x4000, binding[1])) { Error("Shortcut is already in use. Change it in Quick Record settings."); return; }
             ownsKey = true; registered = identity; lastError = "";
+            Log("hotkey registered " + identity);
         }
         catch (Exception exception) { ReleaseKey(); Error(exception.Message); }
     }
@@ -112,6 +118,7 @@ sealed class Launcher : ApplicationContext
             using (Process process = Process.Start(new ProcessStartInfo(ObsPath, "--minimize-to-tray") { WorkingDirectory = Path.GetDirectoryName(ObsPath), UseShellExecute = false }))
                 File.WriteAllText(RequestPath, process.Id.ToString());
             pendingUntil = DateTime.UtcNow.AddSeconds(60);
+            Log("OBS launched; selector requested");
         }
         catch (Exception exception) { pendingUntil = DateTime.MinValue; Error(exception.Message); }
     }
@@ -140,7 +147,10 @@ sealed class Launcher : ApplicationContext
         using (var mutex = new Mutex(true, "Local\\OBSQuickRecordLauncher-" + WindowsIdentity.GetCurrent().User.Value, out created))
         {
             if (!created) return 0;
-            Application.EnableVisualStyles(); Application.Run(new Launcher()); mutex.ReleaseMutex();
+            Application.EnableVisualStyles();
+            var launcher = new Launcher();
+            if (args.Length == 1 && args[0] == "--launch") launcher.Launch();
+            Application.Run(launcher); mutex.ReleaseMutex();
         }
         return 0;
     }

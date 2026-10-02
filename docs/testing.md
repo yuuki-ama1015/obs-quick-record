@@ -310,3 +310,15 @@ QA用obs-ffmpeg-muxのみを、実行パス・親OBS PID・新規テスト録画
 ユーザー指定の yuuki-ama1015/obs-quick-record は空リポジトリであることを確認し、mainへ全履歴をpush。v0.1.0-dev-r6をprereleaseとして公開し、実機確認済みDLLの配布ZIP、ソースZIP、Git bundle、SHA-256、manifestの8点を添付した。公開ファイルを再取得し、8点すべてローカル版とのハッシュ一致を確認。収録ソースコミットはbf54f1d。既存novel-DLには変更していない。
 
 [初回GitHub Actions](https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/37033377398)はwindows-2022で成功。公式OBS 32.2.2 SDK準備、Releaseビルド、CTest 5/5（43.58秒）、ZIP生成・artifact uploadを確認した。CI生成DLLをGUI実機確認済みDLLと同一視せず、Release添付DLLは従来の検証済み0EE163DE…を維持。CI合格は未確認の200%・異種DPI・別OSなどの実機受入を完了するものではない。
+# 2026-10-03 Launcher追加試験
+
+MSVC 14.44/公式OBS 32.2.2/Qt 6.11.1でビルド。Windows標準cscでLauncherのx64 EXEをビルド。最終構成のCTestは7/7成功、43.84秒。要求の対象PID不一致・一回消費・不正内容・期限切れと、既定/変更/未割当/旧形式bindingを追加確認。既存controller/geometry/hotkey/overlay/capture recoveryも成功。
+
+通常版OBSが録画・配信していないことをUIで確認して正常終了し、旧DLLをrecoveryへ退避して更新。Launcherの--launch（通常ホットキーと同じLaunchメソッド）で、OBS終了状態から通常版を起動し選択画面を表示。通常版ログ2026-10-03 01-56-20.txtの01:56:22.165にlauncher request received、22.200にselector opened。OBSはトレイへ最小化されたまま、録画開始なし。LauncherログはAlt+R登録→解除→OBS起動要求を記録。
+
+Escで選択画面をキャンセル。ユーザーにOBS終了後の実キーAlt+R試験を依頼し「選択画面が出た」と回答あり。ただし再確認ログは同じ起動セッションの01:58:22.735にselector openedで、新規OBS起動・Launcher要求は増えていない。回答は実キーでの表示確認として記録し、実キーからのコールド起動をログでも独立証明したとは扱わない。
+
+通常版更新DLL SHA-256: E3FA9746A954D7D414720ED280B0B08CB8DD3CF11B9C5BAB7A9A964A3D829EEF。LocalAppDataのLauncher SHA-256: A9777C391B72C3519CE5EE7507A2AC1D1771ECB29C1268AEBE6460E93D12DA6D。ユーザーStartupのLauncherショートカットを作成済み。Windows再ログインによる起動、ポータブル配置、ホットキー衝突の実機通知は未確認。ポータブル/カスタム配置は現版の対応対象外。
+
+開発に必要なコンパイラー・公式SDKだけをworkへ再取得した。既存QA設定バックアップと旧配布物は保持。新しい変更はローカル実装・導入で、GitHub公開済み改訂6にはLauncherは含まれない。
+

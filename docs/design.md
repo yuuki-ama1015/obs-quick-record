@@ -42,3 +42,11 @@ Win+Shift+R conflicts with Windows Snipping Tool on the QA PC. The default is Al
 ### OBS録画エラー通知とSTOPPEDの順序（2026-10-02〜03実機確認）
 
 OBS 32.2.2の`frontend/widgets/OBSBasic_Recording.cpp`の`RecordingStop`は、録画エラーのモーダル通知を閉じた後で`OBS_FRONTEND_EVENT_RECORDING_STOPPED`を送る。Quick Recordはこの標準イベントを受けてcleanupするため、通知が開いている間は一時シーンとREC表示が残る。録画中のQA muxer障害で実際のOBS_OUTPUT_ENCODE_ERRORと、この順序を確認した。通知を閉じた後の復帰・削除は9ms、正常終了時のリーク0件。OBS本体や他プラグインの通知を操作する仕組み、独自の停止検出は追加せず、標準イベントの順序を維持する。
+# 任意Launcher（2026-10-03追加）
+
+OBS終了中の呼び出しは外部の.NET Framework/Win32 Launcherで受ける。OBSの同一Windowsセッションのプロセスが存在しない間だけRegisterHotKeyを登録し、存在中は解除する。単一起動はユーザーSIDとセッションの名前付きMutexで制限する。起動は標準配置の通常版OBSに--minimize-to-trayを渡す。プラグイン本体は引き続きOBS正式Hotkey APIを使用する。
+
+LauncherはPlugin Config Pathのlaunch-request.txtへ起動したOBS PIDだけを書く。プラグインはFINISHED_LOADING後のGUIタイマーで、対象PID一致・ファイルのサイズと60秒期限を確認し、一度だけ削除して通常toggleを呼ぶ。終了イベントでタイマーを停止し、終了後の呼び出しは無視する。要求は録画開始や対象座標を受け付けず、Idle時の選択画面表示に限る。前面安全設定と出力競合の判定を維持する。読み込み失敗・復旧確認などで60秒を超えればLauncherが取消・通知する。
+
+OBSのobs_key_to_virtual_key（32.2.2のobs-hotkey.hで確認）で主要bindingのWindows仮想キーと修飾キーをsettings.jsonへ保存し、OBS終了後のLauncherが同じキーを使う。主binding以外の追加binding、マウスキー、ポータブル/カスタム配置の起動振り分けは対象外。OBS起動中のbindingは既存実装のまま。
+

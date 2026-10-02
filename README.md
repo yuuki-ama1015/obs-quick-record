@@ -47,11 +47,19 @@ Quick Record独立設定画面のショートカット欄をクリックし、�
 - REC表示にはWindowsのキャプチャ除外を使用します。取得方式によって除外できない場合は設定でOFFにしてください。
 - 「以前のシーンへ戻す」をOFFにすると録画中に手動で選んだ別シーンを保持します。一時シーンのままの場合は、後処理のため保存したシーンに戻します。
 - 前回の範囲は正常に録画開始できた場合に保存します。前回範囲の即時録画ホットキーは未実装です。
-- OBSが終了している状態からの起動は対象外です。
+- プラグイン単体ではOBS終了中の呼び出しはできません。任意のLauncherを常駐させると終了中から起動できます（下記）。
 
 専用設定はOBSのPlugin Config Path配下 `obs-quick-record/settings.json` に保存します。通常のWindows環境では `%APPDATA%\obs-studio\plugin_config\obs-quick-record\settings.json` です。ポータブル版ではポータブル設定配下になります。
 
-## ビルド
+## OBS終了中からの呼び出し
+
+配布フォルダーの `install-launcher.ps1 -StartWithWindows` をPowerShellで実行すると、LauncherをユーザーのLocalAppDataへコピーし、ログイン時に起動します。OBSプラグイン本体は先に上記の配置手順で導入してください。Windows標準の.NET Frameworkを利用します。停止は通知領域のLauncherアイコンから `Exit launcher`。ログイン時の起動を解除するには、スタートアップフォルダーの `OBS Quick Record Launcher.lnk` を削除します。
+
+Launcher稼働中は、OBS終了中にAlt+Rを押すとOBSを起動し、読み込み後に選択画面を開きます。対象選択とEnter確認はこれまで通りです。OBS起動中はLauncherがキー登録を解除し、OBS標準Hotkey APIが担当します。呼び出しキーはQuick Record設定で変更でき、OBS終了後のLauncherにも反映されます。未割り当てやWindowsで登録できないキーは使用しません。別アプリと競合する場合は通知します。
+
+Launcherは標準配置 `%ProgramFiles%/obs-studio/bin/64bit/obs64.exe` の通常版OBSを対象にします。同じWindowsセッションで別のOBSが起動している場合も新しいOBSを起動しません。ポータブル版・カスタム配置・複数OBSの振り分けは対象外です。起動時のOBSエラーや復旧確認などがある場合は、その通知を操作してください。60秒で選択画面が開かなければ起動要求を取り消し通知します。OBS・エンコーダの設定は変更しません。
+
+## ビルド手順
 
 Visual Studio 2022のx64 C++開発環境、Windows SDK、CMake 3.28以上、Ninja、Gitが必要です。Developer PowerShellで実行します。
 
