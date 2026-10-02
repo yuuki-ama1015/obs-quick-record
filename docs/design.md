@@ -49,4 +49,3 @@ OBS終了中の呼び出しは外部の.NET Framework/Win32 Launcherで受ける
 LauncherはPlugin Config Pathのlaunch-request.txtへ起動したOBS PIDだけを書く。プラグインはFINISHED_LOADING後のGUIタイマーで、対象PID一致・ファイルのサイズと60秒期限を確認し、一度だけ削除して通常toggleを呼ぶ。終了イベントでタイマーを停止し、終了後の呼び出しは無視する。要求は録画開始や対象座標を受け付けず、Idle時の選択画面表示に限る。前面安全設定と出力競合の判定を維持する。読み込み失敗・復旧確認などで60秒を超えればLauncherが取消・通知する。
 
 OBSのobs_key_to_virtual_key（32.2.2のobs-hotkey.hで確認）で主要bindingのWindows仮想キーと修飾キーをsettings.jsonへ保存し、OBS終了後のLauncherが同じキーを使う。主binding以外の追加binding、マウスキー、ポータブル/カスタム配置の起動振り分けは対象外。OBS起動中のbindingは既存実装のまま。
-

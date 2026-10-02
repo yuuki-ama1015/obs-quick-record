@@ -2,3 +2,4 @@
 /.deps/
 /stage/
 *.user
+/stage-launcher/

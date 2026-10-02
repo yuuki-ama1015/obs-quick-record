@@ -59,3 +59,5 @@
 6. 観測した不具合のみを最小限修正し、`docs/testing.md` に検証条件と結果を追記する。ビルドと必要なテストを実行し、開発版ZIPを作り直す。
 
 ビルド手順は `README.md` と `tools/prepare-sdk.ps1` を参照。Windows/MSVC/Qt環境を持たないクラウド作業では、ソース確認やドキュメント更新はできてもDLLビルド・OBS GUI・DPIの実機受入は完了できない。クラウド側で何を検証できたかを分けて報告する。
+
+2026-10-03追加: OBS終了中から選択画面を呼び出す任意Launcherをローカル実装・このPCへ導入した。コードはlauncher/、プラグインの要求受信はsrc/launcher-request.hppとQuickRecordController。CTest 7/7と通常版の起動・選択表示を確認。GitHub公開済みv0.1.0-dev-r6には含まれない。READMEのLauncher節とtesting.mdの追加記録を参照。
