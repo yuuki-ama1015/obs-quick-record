@@ -1,15 +1,15 @@
 # obs-quick-record 引き継ぎ書
 
-更新日: 2026-10-03。これは **0.1.0 開発版** の引き継ぎです。MVPの全受入完了、GitHub公開、Release公開を意味しません。
+更新日: 2026-10-03。これは **0.1.0 開発版** の引き継ぎです。MVPの全受入完了・安定版を意味しません。2026-10-03にGitHubへのソース反映と改訂6の開発版Release公開を実施しました。
 
 ## クラウド側で作業を始める方法
 
 1. この文書を含む **ソースZIP** をクラウドCodexの作業に添付して展開する。Git履歴を引き継げる環境では、併せて作成した **Git bundle** からcloneする。DLL配布ZIPにはソースが入っていないため、コードの引き継ぎには使わない。
 2. 展開後、`README.md`、`docs/design.md`、`docs/testing.md`、この文書を読む。実装の主な入口は `src/plugin-main.cpp` と `src/quick-record-controller.cpp`。
 3. 最新ソースは、Studio Mode表示復帰修正、終了後の一時Program復旧 `8023715`、準備中の出力競合修正 `9e4fefd`、終了後の遅延イベント抑止 `2f5ceea` と追加検証の記録を含む。ソースZIPはGitのコミットから作成し、未追跡のQA用OBS、録画、SDK、ビルド成果物は含めない。Git履歴はZIPに含まれず、Git bundleには含まれる。対応コミットとSHA-256は各成果物のmanifestを参照。
-4. 現時点でローカルリポジトリには **Git remoteが設定されていない**。クラウド環境がこのPCのローカルパスを直接参照できるとは想定しない。GitHubで継続する場合は、ユーザーが指定したリポジトリと公開範囲を確認し、ソース・履歴を移す。
+4. GitHubリポジトリは https://github.com/yuuki-ama1015/obs-quick-record 。originを設定し、mainへ全履歴をpush済み。クラウド環境ではこのリポジトリを使用できる。開発版Releaseは https://github.com/yuuki-ama1015/obs-quick-record/releases/tag/v0.1.0-dev-r6 。ZIPとGit bundleの収録コミットはbf54f1dであり、公開状況を更新した後続の文書コミットとは区別する。
 
-ローカルの引き継ぎ用ファイルはソースリポジトリの**親**ディレクトリに置く。最新版 `obs-quick-record-source-handoff-2026-10-03-r6.zip` はソース一式、`obs-quick-record-handoff-2026-10-03-r6.bundle` はGit履歴。DLL配布候補 `obs-quick-record-0.1.0-dev-windows-x64-qa-2026-10-03-r6.zip` は別物。旧版も保存。GitHub Actionsは `.github/workflows/build-windows.yml` に用意済みだが、GitHub上での実行は未確認。
+ローカルの引き継ぎ用ファイルはソースリポジトリの**親**ディレクトリに置く。最新版 `obs-quick-record-source-handoff-2026-10-03-r6.zip` はソース一式、`obs-quick-record-handoff-2026-10-03-r6.bundle` はGit履歴。DLL配布候補 `obs-quick-record-0.1.0-dev-windows-x64-qa-2026-10-03-r6.zip` は別物。旧版も保存。GitHub Actionsは初回実行37033377398で成功。Windowsビルド、CTest 5/5（43.58秒）、ZIP成果物生成を確認した。
 
 ## 目的と守るべき境界
 
@@ -18,7 +18,7 @@
 - このPCでは `Win+Shift+R` がWindows 11のSnipping Tool録画と競合したため、**ユーザー合意の既定キーはAlt+R**。Quick Record独立設定画面から変更できる。Enterは選択画面にフォーカスがある間だけ有効。既定の開始方式はEnter確認、OBS前面での開始禁止はON。録画中の同じキーによる停止は許す。
 - OBSのProgram出力、録画設定、Canvas解像度を使う。選択範囲は既存Canvas全体へ引き伸ばす。MVPの範囲録画は1モニター内のみ。
 - 一時シーン `__obs_quick_record_internal__` と一時ソース `__obs_quick_record_capture__` を使い、録画停止イベントで元のシーンへ戻して解放する。設計根拠とOBS 32.2.2のSource ID・設定キーは `docs/design.md` を参照。
-- 開発はGitで記録する。ユーザーから「GitHubに反映」の指示がある場合、それにはソースの反映だけでなくZIP配布用Releaseも含む。現時点ではその指示はなく、GitHubへのpushやReleaseは行っていない。
+- 開発はGitで記録する。ユーザーから「GitHubに反映」の指示がある場合、それにはソースの反映だけでなくZIP配布用Releaseも含む。2026-10-03にユーザーの指定先へpushし、改訂6の開発版Releaseを公開した。
 - 最上位モデルで作業する場合、ユーザー指示によりサブエージェントは併用しない。
 
 ## ここまでの実装と検証
@@ -44,7 +44,7 @@
 
 ## デスクトップ操作なしで完了した範囲
 
-公式SDK準備スクリプト、新規SDKを使ったReleaseビルド、CTest 5/5（43.66秒）、CIと同じinstall/ZIP生成、ZIP全ファイルの整合性、DLLのx64・export・依存、日英ロケール整合性を確認済みです。デスクトップを操作せず、このPCで実行可能な開発・梱包確認は完了しました。GitHubホストでの実行はremote未設定のため未確認です。実機・別OS・別OBS版・別モニター構成の受入は別途必要です。
+公式SDK準備スクリプト、新規SDKを使ったReleaseビルド、CTest 5/5（43.66秒）、CIと同じinstall/ZIP生成、ZIP全ファイルの整合性、DLLのx64・export・依存、日英ロケール整合性を確認済みです。デスクトップを操作せず、このPCで実行可能な開発・梱包確認は完了しました。GitHubホストでも2026-10-03に初回実行37033377398が成功しました。実機・別OS・別OBS版・別モニター構成の受入は別途必要です。
 
 クラウドへの貼り付け用プロンプトは [CLOUD_PROMPT.md](CLOUD_PROMPT.md) にあります。改訂5には現在の検証記録を同梱し、DLLは実機確認済みのものを維持しています。
 
