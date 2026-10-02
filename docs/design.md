@@ -38,3 +38,7 @@ Win+Shift+R conflicts with Windows Snipping Tool on the QA PC. The default is Al
 4. Physical-pixel region crop and mixed-DPI overlays.
 5. Window picking/filtering and native Window Capture.
 6. Indicator, persistence, lifecycle checks and coexistence validation.
+
+### OBS録画エラー通知とSTOPPEDの順序（2026-10-02〜03実機確認）
+
+OBS 32.2.2の`frontend/widgets/OBSBasic_Recording.cpp`の`RecordingStop`は、録画エラーのモーダル通知を閉じた後で`OBS_FRONTEND_EVENT_RECORDING_STOPPED`を送る。Quick Recordはこの標準イベントを受けてcleanupするため、通知が開いている間は一時シーンとREC表示が残る。録画中のQA muxer障害で実際のOBS_OUTPUT_ENCODE_ERRORと、この順序を確認した。通知を閉じた後の復帰・削除は9ms、正常終了時のリーク0件。OBS本体や他プラグインの通知を操作する仕組み、独自の停止検出は追加せず、標準イベントの順序を維持する。
