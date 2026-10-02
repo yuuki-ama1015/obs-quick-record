@@ -64,4 +64,12 @@ void HotkeyManager::save(obs_data_t *settings) const
     auto *bindings = obs_hotkey_save(id);
     obs_data_set_array(settings, "hotkey", bindings);
     obs_data_array_release(bindings);
+    const auto key = primaryBinding();
+    obs_data_set_int(settings, "launcherVirtualKey", obs_key_to_virtual_key(key.key));
+    uint32_t nativeModifiers = 0;
+    if (key.modifiers & INTERACT_ALT_KEY) nativeModifiers |= 1;
+    if (key.modifiers & INTERACT_CONTROL_KEY) nativeModifiers |= 2;
+    if (key.modifiers & INTERACT_SHIFT_KEY) nativeModifiers |= 4;
+    if (key.modifiers & INTERACT_COMMAND_KEY) nativeModifiers |= 8;
+    obs_data_set_int(settings, "launcherModifiers", nativeModifiers);
 }

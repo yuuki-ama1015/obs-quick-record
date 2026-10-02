@@ -34,6 +34,7 @@ private:
     QTimer startTimeout;
     QTimer countdown;
     QTimer prepareTimer;
+    QTimer launcherTimer;
     bool requested = false;
     bool externalRecording = false;
     RecordingIndicator indicator;

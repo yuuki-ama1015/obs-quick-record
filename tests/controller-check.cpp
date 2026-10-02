@@ -7,6 +7,8 @@
 #include <cstring>
 #include <iostream>
 #include <thread>
+#include <obs-module.h>
+extern "C" obs_module_t *obs_current_module() { return nullptr; }
 
 // Run the production controller, hotkey manager and settings dialog with real Qt
 // timers. Only capture/overlay/frontend boundaries are fakes: no desktop recording,

@@ -3,9 +3,27 @@
 #include <QAction>
 #include <QMessageBox>
 #include <windows.h>
+#include <QCoreApplication>
+#include <util/bmem.h>
+#include "launcher-request.hpp"
 QuickRecordController::QuickRecordController() : hotkey(this, [this] { toggle(); })
 {
     hotkey.load(settings.data);
+    hotkey.save(settings.data);
+    settings.save(); // Export the actual binding for the optional external launcher.
+    connect(&launcherTimer, &QTimer::timeout, this, [this] {
+        if (shuttingDown) return;
+        if (!obs_current_module()) return;
+        if (settings.foregroundSafety && GetAncestor(GetForegroundWindow(), GA_ROOTOWNER) == obs_frontend_get_main_window_handle()) return;
+        char *path = obs_module_config_path("launch-request.txt");
+        if (!path) return;
+        const QString requestPath = QString::fromUtf8(path);
+        bfree(path);
+        if (consumeLauncherRequest(requestPath, QCoreApplication::applicationPid())) {
+            blog(LOG_INFO, "OBS Quick Record: launcher request received");
+            if (state == QuickRecordState::Idle && !pending) toggle();
+        }
+    });
     connect(&overlay, &QuickRecordOverlay::selectionReset, this, [this] { countdown.stop(); state = QuickRecordState::Selecting; });
     connect(&prepareTimer, &QTimer::timeout, this, [this] {
         if (obs_frontend_recording_active()) { finish(); notify("AlreadyRecording"); return; }
@@ -47,6 +65,7 @@ QuickRecordController::QuickRecordController() : hotkey(this, [this] { toggle();
 QuickRecordController::~QuickRecordController()
 {
     shuttingDown = true;
+    launcherTimer.stop();
     if (frontendRegistered) obs_frontend_remove_event_callback(frontendEvent, this);
     hotkey.save(settings.data);
     settings.save();
@@ -65,6 +84,7 @@ void QuickRecordController::onEvent(obs_frontend_event event)
     if (shuttingDown) return;
     if (event == OBS_FRONTEND_EVENT_FINISHED_LOADING) {
         CaptureController::removeStaleScene();
+        launcherTimer.start(500);
     } else if (event == OBS_FRONTEND_EVENT_RECORDING_STARTING && !requested) {
         externalRecording = true;
         if (state != QuickRecordState::Idle || pending) finish();
@@ -95,6 +115,7 @@ void QuickRecordController::onEvent(obs_frontend_event event)
         finish();
     } else if (event == OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN || event == OBS_FRONTEND_EVENT_EXIT) {
         shuttingDown = true;
+        launcherTimer.stop();
         // OBS dispatches callbacks in reverse order, so removing this callback here is safe.
         // Its frontend API is destroyed before module_unload.
         if (frontendRegistered) obs_frontend_remove_event_callback(frontendEvent, this);
