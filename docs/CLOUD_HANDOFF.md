@@ -1,6 +1,6 @@
 # obs-quick-record 引き継ぎ書
 
-更新日: 2026-10-01。これは **0.1.0 開発版** の引き継ぎです。MVPの全受入完了、GitHub公開、Release公開を意味しません。
+更新日: 2026-10-03。これは **0.1.0 開発版** の引き継ぎです。MVPの全受入完了、GitHub公開、Release公開を意味しません。
 
 ## クラウド側で作業を始める方法
 
@@ -9,7 +9,7 @@
 3. 最新ソースは、Studio Mode表示復帰修正、終了後の一時Program復旧 `8023715`、準備中の出力競合修正 `9e4fefd`、終了後の遅延イベント抑止 `2f5ceea` と追加検証の記録を含む。ソースZIPはGitのコミットから作成し、未追跡のQA用OBS、録画、SDK、ビルド成果物は含めない。Git履歴はZIPに含まれず、Git bundleには含まれる。対応コミットとSHA-256は各成果物のmanifestを参照。
 4. 現時点でローカルリポジトリには **Git remoteが設定されていない**。クラウド環境がこのPCのローカルパスを直接参照できるとは想定しない。GitHubで継続する場合は、ユーザーが指定したリポジトリと公開範囲を確認し、ソース・履歴を移す。
 
-ローカルの引き継ぎ用ファイルはソースリポジトリの**親**ディレクトリに置く。最新版 `obs-quick-record-source-handoff-2026-10-01-r5.zip` はソース一式、`obs-quick-record-handoff-2026-10-01-r5.bundle` はGit履歴。DLL配布候補 `obs-quick-record-0.1.0-dev-windows-x64-qa-2026-10-01-r5.zip` は別物。旧版も保存。GitHub Actionsは `.github/workflows/build-windows.yml` に用意済みだが、GitHub上での実行は未確認。
+ローカルの引き継ぎ用ファイルはソースリポジトリの**親**ディレクトリに置く。最新版 `obs-quick-record-source-handoff-2026-10-03-r6.zip` はソース一式、`obs-quick-record-handoff-2026-10-03-r6.bundle` はGit履歴。DLL配布候補 `obs-quick-record-0.1.0-dev-windows-x64-qa-2026-10-03-r6.zip` は別物。旧版も保存。GitHub Actionsは `.github/workflows/build-windows.yml` に用意済みだが、GitHub上での実行は未確認。
 
 ## 目的と守るべき境界
 
