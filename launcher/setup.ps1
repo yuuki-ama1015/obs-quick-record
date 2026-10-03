@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 $pluginSource = Join-Path $PSScriptRoot 'bin/64bit/obs-quick-record.dll'
 $launcherSource = Join-Path $PSScriptRoot 'bin/64bit/obs-quick-record-launcher.exe'
 if (!(Test-Path -LiteralPath $pluginSource) -or !(Test-Path -LiteralPath $launcherSource)) {
-    throw 'Extract the complete obs-quick-record package before running setup.ps1.'
+    throw 'Extract the complete obs-quick-record package before running this installer.'
 }
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
