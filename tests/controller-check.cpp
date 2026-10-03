@@ -20,6 +20,7 @@ static struct {
     void *callbackData = nullptr;
     bool visible = false, allocated = false, recording = false, indicator = false;
     bool prepareOK = true, ready = true, startOK = true, emitStarted = true;
+    bool targetLost = false;
     bool otherOutput = false, replay = false, virtualCamera = false;
     int opens = 0, prepares = 0, starts = 0, stops = 0, cleanups = 0, staleCleanups = 0;
 } qa;
@@ -107,7 +108,8 @@ CaptureController::~CaptureController() { cleanup(); }
 void CaptureController::removeStaleScene() { ++qa.staleCleanups; }
 bool CaptureController::prepare(const CaptureTarget &target, bool)
 { assert(target.valid()); ++qa.prepares; qa.allocated = true; return qa.prepareOK; }
-bool CaptureController::ready() { return qa.ready; }
+CaptureReadiness CaptureController::ready()
+{ return qa.targetLost ? CaptureReadiness::Failed : qa.ready ? CaptureReadiness::Ready : CaptureReadiness::Waiting; }
 bool CaptureController::start()
 {
     ++qa.starts;
@@ -189,6 +191,18 @@ int main(int argc, char **argv)
         wait(150);
         idle();
         assert(qa.starts == 1);
+    });
+    scenario(StartMode::Immediate, [] {
+        qa.ready = false;
+        emit qa.overlay->selectionReady();
+        wait(150);
+        assert(qa.allocated && qa.starts == 0);
+        qa.targetLost = true; // Deleted scene item / changed window while warming.
+        wait(150);
+        idle();
+        assert(qa.starts == 0);
+        toggle();
+        assert(qa.opens == 2);
     });
     scenario(StartMode::Immediate, [] {
         qa.emitStarted = false; // Frontend accepts request but encoder never starts.

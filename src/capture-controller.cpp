@@ -71,7 +71,10 @@ bool CaptureController::prepare(const CaptureTarget &selection, bool cursor)
     if (collision) { obs_source_release(collision); return false; }
     target = selection;
     const bool window = target.kind == CaptureKind::Window;
-    if (window && !WindowSelector::stillValid(target)) return false;
+    if (window && !WindowSelector::stillValid(target)) {
+        blog(LOG_WARNING, "OBS Quick Record: selected window changed or OBS resolves a different HWND");
+        return false;
+    }
     previous = obs_frontend_get_current_scene();
     if (!previous) return false;
     auto *data = obs_data_create();
@@ -91,9 +94,18 @@ bool CaptureController::prepare(const CaptureTarget &selection, bool cursor)
     auto *props = obs_source_properties(source);
     auto *list = obs_properties_get(props, window ? "window" : "monitor_id");
     bool listed = false;
-    for (size_t i = 0; list && i < obs_property_list_item_count(list); ++i)
-        if ((window ? target.windowValue : target.monitor.id) == QString::fromUtf8(obs_property_list_item_string(list, i))) listed = true;
+    int matchingTitles = 0;
+    for (size_t i = 0; list && i < obs_property_list_item_count(list); ++i) {
+        const auto value = QString::fromUtf8(obs_property_list_item_string(list, i));
+        if ((window ? target.windowValue : target.monitor.id) == value) listed = true;
+        if (window && value.section(':', 0, 0).compare(target.windowValue.section(':', 0, 0), Qt::CaseInsensitive) == 0)
+            ++matchingTitles;
+    }
     obs_properties_destroy(props);
+    if (window && matchingTitles != 1) {
+        blog(LOG_WARNING, "OBS Quick Record: window title is ambiguous; refusing capture");
+        cleanup(); return false;
+    }
     if (!listed) { cleanup(); return false; }
     scene = obs_scene_create(sceneName);
     if (!scene) { cleanup(); return false; }
@@ -103,6 +115,7 @@ bool CaptureController::prepare(const CaptureTarget &selection, bool cursor)
     obs_data_release(sceneData);
     item = obs_scene_add(scene, source);
     if (!item) { cleanup(); return false; }
+    obs_sceneitem_addref(item);
     obs_video_info video{};
     if (!obs_get_video_info(&video)) { cleanup(); return false; }
     vec2 bounds{static_cast<float>(video.base_width), static_cast<float>(video.base_height)};
@@ -116,15 +129,32 @@ bool CaptureController::prepare(const CaptureTarget &selection, bool cursor)
     cropped = false;
     return true;
 }
-bool CaptureController::ready()
+static bool windowCaptureMatches(obs_source_t *source, const CaptureTarget &target)
 {
-    if (!scene || !source) return false;
+    // OBS 32.2.2 Window Capture's public get_hooked procedure reports the
+    // acquired title/class/executable, including Studio Mode's capture copy.
+    calldata_t data{};
+    const bool called = proc_handler_call(obs_source_get_proc_handler(source), "get_hooked", &data);
+    const bool matches = called && calldata_bool(&data, "hooked") &&
+        WindowSelector::encode(QString::fromUtf8(calldata_string(&data, "title")),
+                               QString::fromUtf8(calldata_string(&data, "class")),
+                               QString::fromUtf8(calldata_string(&data, "executable"))) == target.windowValue;
+    calldata_free(&data);
+    return matches;
+}
+CaptureReadiness CaptureController::ready()
+{
+    if (!scene || !source || !item) return CaptureReadiness::Failed;
     auto *sceneSource = obs_scene_get_source(scene);
-    if (!obs_source_get_width(source) || !obs_source_get_height(source)) return false;
+    if (obs_source_removed(sceneSource) || obs_source_removed(source) || obs_sceneitem_get_scene(item) != scene)
+        return CaptureReadiness::Failed;
+    if (target.kind == CaptureKind::Window && !WindowSelector::stillValid(target)) return CaptureReadiness::Failed;
+    if (!obs_source_get_width(source) || !obs_source_get_height(source)) return CaptureReadiness::Waiting;
+    if (target.kind == CaptureKind::Window && !windowCaptureMatches(source, target)) return CaptureReadiness::Waiting;
     if (!cropped && target.kind == CaptureKind::Region) {
         // Display Capture pixels must agree with the selected physical monitor geometry.
         if (obs_source_get_width(source) != static_cast<uint32_t>(target.monitor.physical.width()) ||
-            obs_source_get_height(source) != static_cast<uint32_t>(target.monitor.physical.height())) return false;
+            obs_source_get_height(source) != static_cast<uint32_t>(target.monitor.physical.height())) return CaptureReadiness::Waiting;
         const auto local = target.physical.translated(-target.monitor.physical.topLeft());
         obs_sceneitem_crop crop{};
         crop.left = local.x(); crop.top = local.y();
@@ -141,11 +171,11 @@ bool CaptureController::ready()
         bool listed = false;
         for (size_t i = 0; i < scenes.sources.num; ++i) if (scenes.sources.array[i] == sceneSource) listed = true;
         obs_frontend_source_list_free(&scenes);
-        if (!listed) return false;
+        if (!listed) return CaptureReadiness::Waiting;
         auto *transition = obs_frontend_get_current_transition();
         bool active = transition && obs_transition_is_active(transition);
         obs_source_release(transition);
-        if (active) return false;
+        if (active) return CaptureReadiness::Waiting;
         obs_frontend_set_current_scene(sceneSource);
         switched = true;
     }
@@ -158,30 +188,36 @@ bool CaptureController::ready()
     bool programReady = false;
     if (program && QString::fromUtf8(obs_source_get_name(program)) == sceneName) {
         // Studio Mode's private copy can contain a separate Window Capture instance.
+        struct Check { const CaptureTarget &target; bool ready = false; } check{target};
         obs_scene_enum_items(obs_scene_from_source(program), [](obs_scene_t *, obs_sceneitem_t *item, void *data) {
+            auto &check = *static_cast<Check *>(data);
             auto *capture = obs_sceneitem_get_source(item);
-            *static_cast<bool *>(data) = obs_source_get_width(capture) && obs_source_get_height(capture);
+            check.ready = obs_source_get_width(capture) && obs_source_get_height(capture) &&
+                (check.target.kind != CaptureKind::Window || windowCaptureMatches(capture, check.target));
             return false; // Our scene has exactly one capture item.
-        }, &programReady);
+        }, &check);
+        programReady = check.ready;
     }
     obs_source_release(program);
     obs_source_release(transition);
     if (!currentMatches || active || !programReady) {
         settled.invalidate();
-        return false;
+        return CaptureReadiness::Waiting;
     }
     if (!settled.isValid()) settled.start();
-    return settled.elapsed() >= 250;
+    return settled.elapsed() >= 250 ? CaptureReadiness::Ready : CaptureReadiness::Waiting;
 }
 bool CaptureController::start()
 {
-    if (obs_frontend_recording_active()) return false;
+    if (obs_frontend_recording_active() || ready() != CaptureReadiness::Ready) return false;
     obs_frontend_recording_start();
     return true;
 }
 void CaptureController::stop() { obs_frontend_recording_stop(); }
 void CaptureController::cleanup(bool restore)
 {
+    obs_sceneitem_release(item);
+    item = nullptr;
     if (scene) {
         auto *current = obs_frontend_get_current_scene();
         const bool ours = current == obs_scene_get_source(scene);
@@ -194,7 +230,6 @@ void CaptureController::cleanup(bool restore)
         obs_source_remove(obs_scene_get_source(scene));
         obs_scene_release(scene);
         scene = nullptr;
-        item = nullptr;
     }
     if (warming) obs_source_dec_showing(source);
     warming = false;

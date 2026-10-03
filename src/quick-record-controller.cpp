@@ -28,7 +28,9 @@ QuickRecordController::QuickRecordController() : hotkey(this, [this] { toggle();
     connect(&prepareTimer, &QTimer::timeout, this, [this] {
         if (obs_frontend_recording_active()) { finish(); notify("AlreadyRecording"); return; }
         if (obs_frontend_streaming_active() || obs_frontend_replay_buffer_active() || obs_frontend_virtualcam_active()) { finish(); notify("OtherOutput"); return; }
-        if (!capture.ready()) return;
+        const auto readiness = capture.ready();
+        if (readiness == CaptureReadiness::Failed) { finish(); notify("StartFailed"); return; }
+        if (readiness != CaptureReadiness::Ready) return;
         prepareTimer.stop();
         requested = true;
         if (!capture.start()) { finish(); notify("StartFailed"); return; }

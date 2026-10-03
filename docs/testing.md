@@ -325,3 +325,12 @@ Escで選択画面をキャンセル。ユーザーにOBS終了後の実キーAl
 ## 2026-10-03 Launcher版GitHub公開
 
 73ed54eをpushし、v0.1.0-dev-launcher-r1をprereleaseとして公開。添付6点を再取得しローカル版とSHA-256一致。Windows CI https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/37091199849 は成功、CTest 7/7（43.59秒）、Launcher込みZIP artifact生成を確認した。公開DLLはこのPCで導入・起動確認したものを維持し、CI生成DLLを未検証のまま差し替えていない。
+
+## 2026-10-03 レビュー指摘4件の修正
+
+- 選択SurfaceのWM_CLOSE（Alt+F4と同じ終了経路）で全Surfaceを隠してcanceledを送る。overlay-checkでキャンセル通知・全画面非表示・再表示を確認。controller-checkのキャンセル後のカウントダウン停止確認も成功。
+- 旧形式のOBS_KEY_0〜OBS_KEY_9をWindowsの数字キーVK_0〜VK_9へ変換する。Launcherの--checkで10キーすべてと未定義の数値キーの拒否を確認。
+- 一時scene itemの追加参照を保持し、削除・所属変更・source/scene削除をFailed readinessとして扱う。実libobsで準備中にitemを削除し、readyがFailed、startがfalse、cleanupで一時sceneが削除されることを確認。controllerの境界テストでも準備を中止して再選択できることを確認。
+- 同一タイトルの候補（大小文字違い・別class/exeを含む）は拒否。OBS標準のBitBlt/WGC探索が選択HWNDを返すか準備中と開始直前に検証し、get_hookedの取得情報を元ソースとProgram側でも確認する。capture-recovery-checkではキャプチャドライバーとfrontendを代替し、実libobs scene/transitionを使用。同名候補の拒否、寸法だけでは開始しないこと、別class取得時にProgramを切り替えないこと、正しい取得では待機後に開始要求できること、cleanupによる元Program復帰を確認。
+
+MSVC/OBS 32.2.2/Qt 6.11.1のReleaseビルド成功。全7チェックは44.90秒で成功。その後、取得対象一致から開始までの確認を追加し、最終capture-recovery-checkを再ビルド・再実行して0.33秒で成功。デスクトップの入力操作や実録画は実施していない。変更版はローカルビルドで、通常版OBSへの導入・GitHub公開・実OBSでのウィンドウ録画再確認は未実施。

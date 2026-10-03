@@ -1,6 +1,8 @@
 #include "window-selector.hpp"
 #include <windows.h>
 #include <dwmapi.h>
+#include <util/windows/window-helpers.h>
+#include <util/bmem.h>
 namespace {
 QString escaped(QString value) { return value.replace("#", "#22").replace(":", "#3A"); }
 bool eligible(HWND window)
@@ -63,5 +65,14 @@ CaptureTarget WindowSelector::at(QPoint point, const std::vector<MonitorInfo> &m
 bool WindowSelector::stillValid(const CaptureTarget &target)
 {
     auto current = describe(reinterpret_cast<HWND>(target.windowHandle), {target.monitor});
-    return current.valid() && current.processId == target.processId && current.windowValue == target.windowValue;
+    if (!current.valid() || current.processId != target.processId || current.windowValue != target.windowValue) return false;
+    char *windowClass = nullptr, *title = nullptr, *exe = nullptr;
+    ms_build_window_strings(target.windowValue.toUtf8().constData(), &windowClass, &title, &exe);
+    const auto expected = reinterpret_cast<HWND>(target.windowHandle);
+    // Auto capture can choose BitBlt or WGC. Both OBS search paths must resolve
+    // to the clicked HWND; validating the property string alone is insufficient.
+    const bool matches = ms_find_window(INCLUDE_MINIMIZED, WINDOW_PRIORITY_TITLE, windowClass, title, exe) == expected &&
+        ms_find_window_top_level(INCLUDE_MINIMIZED, WINDOW_PRIORITY_TITLE, windowClass, title, exe) == expected;
+    bfree(windowClass); bfree(title); bfree(exe);
+    return matches;
 }
