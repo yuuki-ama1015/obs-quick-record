@@ -70,7 +70,9 @@ Quick Record独立設定画面のショートカット欄をクリックし、�
 
 ## OBS終了中からの呼び出し
 
-手動でプラグインを配置した場合は、`install-launcher.ps1 -StartWithWindows` をPowerShellで実行するとLauncherをユーザーのLocalAppDataへコピーし、ログイン時に起動します。停止は通知領域のLauncherアイコンから `Exit launcher`。ログイン時の起動を解除するには、スタートアップフォルダーの `OBS Quick Record Launcher.lnk` を削除します。
+通知領域のLauncherアイコンを右クリックすると、「サインイン時の自動起動を登録」のチェックで登録をON／OFFできます。「ランチャーをアンインストール…」を選び、確認画面で「はい」を押すと、実行中のLauncherの配置先を使って登録解除・終了・削除します。OBSのQuick Recordプラグインと設定は保持します。保存先を探す必要はありません。展開先・開発フォルダーからの削除は拒否し、配置フォルダーにほかのファイルがあれば保持します。Windowsのタスクマネージャーなどで別途起動を無効化している場合は、そちらも確認してください。日本語以外のWindowsでは英語メニューです。
+
+手動でプラグインを配置した場合は、`install-launcher.ps1 -StartWithWindows` をPowerShellで実行するとLauncherをユーザーのLocalAppDataへコピーし、ログイン時に起動します。停止は通知領域のLauncherアイコンから「ランチャーを終了」（英語表示では `Exit launcher`）を選びます。
 
 Launcher稼働中は、OBS終了中にAlt+Rを押すとOBSを起動し、読み込み後に選択画面を開きます。対象選択とEnter確認はこれまで通りです。OBS起動中はLauncherがキー登録を解除し、OBS標準Hotkey APIが担当します。呼び出しキーはQuick Record設定で変更でき、OBS終了後のLauncherにも反映されます。未割り当てやWindowsで登録できないキーは使用しません。別アプリと競合する場合は通知します。
 

@@ -6,6 +6,9 @@ using System.Security.Principal;
 using System.Threading;
 using System.Web.Script.Serialization;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Windows.Forms;
 
 // .NET Framework and Win32 only; the plugin retains ownership while OBS is running.
@@ -32,6 +35,100 @@ sealed class Launcher : ApplicationContext
     DateTime pendingUntil = DateTime.MinValue;
     string ObsPath { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "obs-studio", "bin", "64bit", "obs64.exe"); } }
     string RequestPath { get { return Path.Combine(config, "launch-request.txt"); } }
+    static string Text(string japanese, string english) { return CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ja" ? japanese : english; }
+    static string ExecutablePath { get { return Process.GetCurrentProcess().MainModule.FileName; } }
+    static string StartupPath { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "OBS Quick Record Launcher.lnk"); } }
+
+    static void SetStartup(bool enabled, string shortcutPath, string exe)
+    {
+        if (!enabled) { File.Delete(shortcutPath); return; }
+        dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));
+        dynamic shortcut = null;
+        try
+        {
+            shortcut = shell.CreateShortcut(shortcutPath);
+            shortcut.TargetPath = exe;
+            shortcut.WorkingDirectory = Path.GetDirectoryName(exe);
+            shortcut.Save();
+        }
+        finally
+        {
+            if (shortcut != null) Marshal.FinalReleaseComObject(shortcut);
+            Marshal.FinalReleaseComObject(shell);
+        }
+    }
+    static bool SafeInstalledPath(string exe, string localRoot)
+    {
+        exe = Path.GetFullPath(exe);
+        localRoot = Path.GetFullPath(localRoot).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        if (!exe.StartsWith(localRoot, StringComparison.OrdinalIgnoreCase) ||
+            !String.Equals(Path.GetFileName(exe), "obs-quick-record-launcher.exe", StringComparison.OrdinalIgnoreCase) ||
+            !String.Equals(Path.GetFileName(Path.GetDirectoryName(exe)), "OBSQuickRecordLauncher", StringComparison.OrdinalIgnoreCase)) return false;
+        for (string path = exe; path.Length >= localRoot.Length; path = Path.GetDirectoryName(path))
+            if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0) return false;
+        return true;
+    }
+    static string Hash(string file)
+    {
+        using (var sha = SHA256.Create()) using (var stream = File.OpenRead(file))
+            return BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "");
+    }
+    static string PsQuote(string value) { return "'" + value.Replace("'", "''") + "'"; }
+    static string RemovalScript(string exe, int parentId, bool showResult)
+    {
+        // Windows locks the running EXE; a short-lived native PowerShell helper waits for exit.
+        return "$ErrorActionPreference='Stop'\n$exe=" + PsQuote(exe) + "\n$expectedHash=" + PsQuote(Hash(exe)) +
+            "\n$parentId=" + parentId + "\n$showResult=" + (showResult ? "$true" : "$false") +
+            "\n$success=" + PsQuote(Text("ランチャーを削除しました。OBSのQuick Recordプラグインと設定は保持しています。", "Launcher removed. The OBS Quick Record plugin and settings are retained.")) +
+            "\n$failure=" + PsQuote(Text("ランチャーの削除に失敗しました。", "Could not remove the Launcher.")) + @"
+try {
+    $parent=Get-Process -Id $parentId -ErrorAction SilentlyContinue
+    if ($parent) {
+        if ($parent.Path -ne $exe) { throw 'The process no longer matches the Launcher.' }
+        if (!$parent.WaitForExit(15000)) { throw 'The Launcher did not exit.' }
+    }
+    $sha=[Security.Cryptography.SHA256]::Create()
+    $stream=[IO.File]::OpenRead($exe)
+    try { $actualHash=[BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '') }
+    finally { $stream.Dispose(); $sha.Dispose() }
+    if ($actualHash -ne $expectedHash) { throw 'The file changed; removal canceled.' }
+    [IO.File]::Delete($exe)
+    $folder=Split-Path -Parent $exe
+    if ((Get-ChildItem -LiteralPath $folder -Force | Measure-Object).Count -eq 0) { [IO.Directory]::Delete($folder, $false) }
+    if ($showResult) { Add-Type -AssemblyName System.Windows.Forms; [void][Windows.Forms.MessageBox]::Show($success, 'OBS Quick Record Launcher') }
+} catch {
+    [Console]::Error.WriteLine($_.Exception.Message)
+    if ($showResult) { Add-Type -AssemblyName System.Windows.Forms; [void][Windows.Forms.MessageBox]::Show($failure + [Environment]::NewLine + $_.Exception.Message, 'OBS Quick Record Launcher') }
+    exit 1
+} finally { Remove-Item -LiteralPath $PSCommandPath -ErrorAction SilentlyContinue }
+";
+    }
+    static Process StartRemoval(string exe, int parentId, bool showResult)
+    {
+        string script = Path.Combine(Path.GetTempPath(), "obs-quick-record-remove-" + Guid.NewGuid() + ".ps1");
+        File.WriteAllText(script, RemovalScript(exe, parentId, showResult), new UTF8Encoding(true));
+        try
+        {
+            return Process.Start(new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe"),
+                "-NoProfile -ExecutionPolicy Bypass -File \"" + script + "\"") { UseShellExecute = false, CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden, RedirectStandardError = !showResult });
+        }
+        catch { File.Delete(script); throw; }
+    }
+    void Uninstall()
+    {
+        if (MessageBox.Show(Text("ランチャーをアンインストールしますか？\n自動起動を解除してランチャーを削除します。\nOBSのQuick Recordプラグインと設定は保持します。", "Uninstall the Launcher?\nAutomatic startup will be disabled and the Launcher removed.\nThe OBS Quick Record plugin and settings will be retained."),
+            "OBS Quick Record Launcher", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;
+        try
+        {
+            string exe = ExecutablePath;
+            string root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "AppData", "Local");
+            if (!SafeInstalledPath(exe, root)) throw new InvalidOperationException(Text("インストール済みのランチャーから実行してください。展開・開発用フォルダーのファイルは削除しません。", "Run this from the installed Launcher. Files in extracted or development folders will not be removed."));
+            SetStartup(false, StartupPath, exe);
+            using (Process helper = StartRemoval(exe, Process.GetCurrentProcess().Id, true)) { }
+            ExitThread();
+        }
+        catch (Exception exception) { Error(exception.Message); }
+    }
 
     static bool ObsRunning()
     {
@@ -128,10 +225,53 @@ sealed class Launcher : ApplicationContext
     {
         window.Pressed = Launch;
         var menu = new ContextMenuStrip();
-        menu.Items.Add("Launch OBS selection", null, (sender, args) => Launch());
-        menu.Items.Add("Exit launcher", null, (sender, args) => ExitThread());
+        menu.Items.Add(Text("録画対象の選択を開く", "Launch OBS selection"), null, (sender, args) => Launch());
+        var startup = new ToolStripMenuItem(Text("サインイン時の自動起動を登録", "Register automatic startup at sign-in"));
+        menu.Opening += (sender, args) => startup.Checked = File.Exists(StartupPath);
+        startup.Click += (sender, args) => {
+            try { SetStartup(!File.Exists(StartupPath), StartupPath, ExecutablePath); startup.Checked = File.Exists(StartupPath); }
+            catch (Exception exception) { Error(exception.Message); }
+        };
+        menu.Items.Add(startup);
+        menu.Items.Add(Text("ランチャーをアンインストール…", "Uninstall Launcher…"), null, (sender, args) => Uninstall());
+        menu.Items.Add(Text("ランチャーを終了", "Exit launcher"), null, (sender, args) => ExitThread());
         icon.ContextMenuStrip = menu;
         timer.Tick += Refresh; Refresh(null, EventArgs.Empty); timer.Start();
+    }
+    static bool CheckManagement()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "obs-quick-record-check-" + Guid.NewGuid());
+        string folder = Path.Combine(root, "OBSQuickRecordLauncher"), exe = Path.Combine(folder, "obs-quick-record-launcher.exe"), link = Path.Combine(root, "startup.lnk");
+        try
+        {
+            Directory.CreateDirectory(folder);
+            File.Copy(ExecutablePath, exe);
+            File.WriteAllText(Path.Combine(folder, "keep.txt"), "unrelated file");
+            if (!SafeInstalledPath(exe, root) || SafeInstalledPath(exe, Path.Combine(root, "outside")) || SafeInstalledPath(ExecutablePath, root)) throw new InvalidDataException("Path safety check failed");
+            SetStartup(true, link, exe);
+            if (!File.Exists(link)) throw new InvalidDataException("Startup shortcut missing");
+            dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));
+            dynamic shortcut = shell.CreateShortcut(link);
+            bool correct = shortcut.TargetPath == exe && shortcut.WorkingDirectory == folder;
+            Marshal.FinalReleaseComObject(shortcut); Marshal.FinalReleaseComObject(shell);
+            if (!correct) throw new InvalidDataException("Startup shortcut target or working directory differs");
+            SetStartup(false, link, exe); SetStartup(false, link, exe);
+            if (File.Exists(link)) throw new InvalidDataException("Startup shortcut was not removed");
+            // Mismatched content must survive; then remove only the intended EXE, preserving its sibling.
+            string changedScript = RemovalScript(exe, Int32.MaxValue, false);
+            File.AppendAllText(exe, "changed");
+            string script = Path.Combine(root, "changed.ps1"); File.WriteAllText(script, changedScript, new UTF8Encoding(true));
+            using (var p = Process.Start(new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe"), "-NoProfile -ExecutionPolicy Bypass -File \"" + script + "\"") { UseShellExecute = false, CreateNoWindow = true }))
+                if (!p.WaitForExit(30000) || p.ExitCode == 0 || !File.Exists(exe)) throw new InvalidDataException("Changed file removal was not rejected");
+            using (var p = StartRemoval(exe, Int32.MaxValue, false)) if (!p.WaitForExit(30000) || p.ExitCode != 0) throw new InvalidDataException("Removal helper failed: " + p.StandardError.ReadToEnd());
+            return !File.Exists(exe) && File.Exists(Path.Combine(folder, "keep.txt"));
+        }
+        catch (Exception exception) { Console.Error.WriteLine(exception); return false; }
+        finally
+        {
+            if (Path.GetFullPath(root).StartsWith(Path.GetFullPath(Path.GetTempPath()), StringComparison.OrdinalIgnoreCase) &&
+                Directory.Exists(root) && (File.GetAttributes(root) & FileAttributes.ReparsePoint) == 0) Directory.Delete(root, true);
+        }
     }
     protected override void ExitThreadCore()
     {
@@ -150,7 +290,7 @@ sealed class Launcher : ApplicationContext
             }
             try { Binding("{\"hotkey\":[{\"key\":\"OBS_KEY_999\"}]}"); return 1; }
             catch (InvalidDataException) {}
-            return initial[0] == 1 && initial[1] == 82 && changed[0] == 6 && changed[1] == 121 && unbound[1] == 0 && legacy[0] == 1 && legacy[1] == 82 ? 0 : 1;
+            return initial[0] == 1 && initial[1] == 82 && changed[0] == 6 && changed[1] == 121 && unbound[1] == 0 && legacy[0] == 1 && legacy[1] == 82 && CheckManagement() ? 0 : 1;
         }
         bool created;
         using (var mutex = new Mutex(true, "Local\\OBSQuickRecordLauncher-" + WindowsIdentity.GetCurrent().User.Value, out created))
