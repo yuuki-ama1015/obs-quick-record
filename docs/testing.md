@@ -385,3 +385,11 @@ Quick Record設定がドックを覆う問題を避けるため、開くドッ�
 コード5a53f60で全7チェックを再実行し44.59秒で成功。通常版OBSが録画・配信していないことをUIで確認して正常終了、旧DLLをrecovery/pre-hide-autostop-installへ退避して最新DLLとlocaleをProgramDataへ導入。DLL SHA-256: FEB2E14BE9399C644107445E812FA2C757374D02C5E991AE353518CF9746C736。15:14:46.283にplugin loaded、15:14:46.291にStartup complete。Alt+R・foregroundSafety=trueを保持。QAも正常終了し、現在は通常版のみ実行中。
 
 GitHubへコードをpush済み。Windows CIは https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/37102360869 。配布版はv0.1.0-dev-autostop-settings-r1として、PCへ導入したRelWithDebInfo DLLとLauncher、locale、ドキュメントを同梱する。ソースZIP・Git bundle・各SHA-256も提供する。未導入時の非表示はQtテストで検証し、Auto Stop DLLを実際にアンインストールする試験は行っていない。導入済みAuto StopのUI・保存は上記QA確認の範囲で、最新非表示版での通常版UI再操作は未実施。
+
+## 2026-10-03 一括導入・サインイン時自動起動の実機試験（未完了）
+
+現在の通常版OBSとユーザー設定を保持し、Quick Recordのプラグイン・Launcher・Startupリンクをバックアップへ退避した。配置先が存在しない状態から、公開r3 ZIPのinstall.ps1を通常ユーザーの非管理者権限で起動した。これは既存Windows/OBS上のクリーンなプラグイン導入試験であり、新規OSや別ユーザーでの試験ではない。
+
+UACのconsentプロセスを確認したが、UAC画面についてのユーザー回答は未受信。その後、確認プロセスとインストーラーが終了し、導入ファイルは作成されなかった。承認取消・タイムアウトなどの理由は確認できておらず、UAC経由の導入を成功と判定しない。元の導入ファイル・Launcher稼働・Startupリンクを復元し、Quick Record設定のハッシュ一致を確認した。
+
+実再ログインの確認用に、Launcherを自分では起動しない一時観測スクリプトを準備した。新しいログオン識別子、Launcher起動時刻とパス、Startupリンクを記録する。ユーザー自身のサインアウト・サインインと観測結果の照合は未実施であり、自動起動成功とはまだ扱わない。観測用の追加登録は試験後に解除する。
