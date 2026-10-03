@@ -97,7 +97,8 @@ SettingsWindow::SettingsWindow(Settings &settings, HotkeyManager &hotkey, QWidge
         dock->setFloating(true);
         // A normal window stays usable when the OBS owner is minimized/hidden.
         dock->setWindowFlags((dock->windowFlags() & ~Qt::WindowType_Mask) |
-                             Qt::Window | Qt::WindowMinimizeButtonHint | Qt::WindowCloseButtonHint);
+                             Qt::Window | Qt::WindowMinimizeButtonHint | Qt::WindowCloseButtonHint |
+                             Qt::WindowStaysOnTopHint);
         dock->showNormal();
         dock->raise();
         dock->activateWindow();

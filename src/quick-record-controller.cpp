@@ -181,6 +181,9 @@ void QuickRecordController::showSettings()
         connect(settingsWindow, &QDialog::accepted, this, [this] { hotkey.save(settings.data); settings.save(); });
     }
     settingsWindow->show(); settingsWindow->raise(); settingsWindow->activateWindow();
+    const auto geometry = settingsWindow->geometry();
+    blog(LOG_INFO, "OBS Quick Record: settings opened visible=%d x=%d y=%d w=%d h=%d",
+         settingsWindow->isVisible(), geometry.x(), geometry.y(), geometry.width(), geometry.height());
 }
 void QuickRecordController::finish()
 {

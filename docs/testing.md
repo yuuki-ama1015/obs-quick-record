@@ -365,3 +365,13 @@ Launcher SHA-256: 37E6C55A8356D97FDF6AACAA18C69725F772F9C3ECA663C90F80F2958D79D5
 Quick Record設定に日本語・英語の「自動停止設定を開く」を追加。既存の `obs-auto-stop-dock` をQt通常Windowとしてフロート表示する任意のUI連携。Auto Stop未導入時の無効化、OBS最小化中・非表示中のドック表示、削除済みドックの安全な扱いを既存hotkey-checkへ追加した。MSVC/OBS 32.2.2/Qt 6.11.1でビルド成功、CTest 7/7成功（45.50秒）。
 
 実OBSの独立QA環境へ試験DLLとlocaleを配置し起動。設定画面の表示操作後にウィンドウが操作ツールの一覧から取得できなくなったため、実Auto Stop画面の表示・設定保存・通常版OBSへの導入は未確認。QAプロセスは応答中でクラッシュ記録なし。ユーザーへQA本体の表示を依頼済み。この変更を導入済みまたは実機確認済みとは扱わない。
+
+## 2026-10-03 Auto Stop設定ボタンの実機確認・導入
+
+ユーザーがQA本体を表示した後に再確認。QAでOBS本体を非表示にしたままQuick Record設定を開き、ボタンから既存Auto Stopドックを独立表示できた。ドックは操作ツールの独立ウィンドウ一覧には出なかったが、関連UIのスクリーンショットに表示され、無音時間のスピンボタンを操作できた。15秒→16秒の変更でbasic.iniのSilenceSeconds=16、15秒へ復元してSilenceSeconds=15を確認。通常版Auto Stopの設定値は変更していない。
+
+Quick Record設定がドックを覆う問題を避けるため、開くドックにもWindowStaysOnTopHintを追加。ビルド成功、関連hotkey-check/controller-checkを再実行して2/2成功（43.70秒）。設定画面の表示状態・座標をログへ追加した。
+
+録画・配信していない通常版OBSをUIで確認し正常終了、旧DLLをrecovery/pre-auto-stop-settings-installへ退避して新DLLとlocaleをProgramDataへ更新。DLL SHA-256: 55AF7E2B5DB650A112D2B48B1CC5FAE265662CE71B6D202886B63E20E03CE14B。最小化再起動後14:38:01.644にplugin loaded、14:38:02.298にAuto Stop dock registered。Alt+R・Enter確認・foregroundSafety=trueを維持。
+
+通常版の14:39:04.383でsettings opened visible=1 x=690 y=254 w=520 h=506を記録したが、操作ツールの一覧へ設定ウィンドウが現れず、最終版の通常版Auto Stopボタン・前面表示はユーザーの画面回答待ち。Qtのvisibleログのみを実画面表示の証明とは扱わない。QAプロセスも通知領域に残っている。この機能のGitHub公開はまだ行っていない。
