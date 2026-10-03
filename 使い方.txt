@@ -28,12 +28,12 @@ OBS起動アシストは、OBSが終了していてもショートカットキ�
 ② ダウンロードしたZIPを右クリックして「すべて展開」します。
    ZIPの中から直接実行せず、展開したファイルを使ってください。
 ③ 展開先の「obs-quick-record」フォルダーを開きます。
-   Quick Recordをまとめてインストール.ps1、使い方.txt、bin、dataが並んでいる場所です。
+   OBS Quick RecordとOBS起動アシストをまとめてインストール.ps1、使い方.txt、bin、dataが並んでいる場所です。
 ④ エクスプローラー上部のアドレス欄に powershell と入力してEnterを押します。
    そのフォルダーを作業場所にしたPowerShellが開きます。
 ⑤ 次の1行をコピーしてPowerShellへ貼り付け、Enterを押します。
 
-   powershell -ExecutionPolicy Bypass -File .\"Quick Recordをまとめてインストール.ps1"
+   powershell -ExecutionPolicy Bypass -File .\"OBS Quick RecordとOBS起動アシストをまとめてインストール.ps1"
 
 ⑥ ユーザーアカウント制御（UAC）の確認画面で「はい」を選びます。
    この配布ZIP内のスクリプトを実行するときだけの指定です。
@@ -48,7 +48,7 @@ OBS起動アシストは、OBSが終了していてもショートカットキ�
 
 Windowsサインイン時の自動起動を登録したくない場合は、⑤を次に変えます。
 
-   powershell -ExecutionPolicy Bypass -File .\"Quick Recordをまとめてインストール.ps1" -NoStartup
+   powershell -ExecutionPolicy Bypass -File .\"OBS Quick RecordとOBS起動アシストをまとめてインストール.ps1" -NoStartup
 
 この指定でも、導入直後のOBS起動アシストは起動します。既存の自動起動登録は削除しません。
 自動起動の解除方法は「8. 終了・自動起動解除・アンインストール」を参照してください。

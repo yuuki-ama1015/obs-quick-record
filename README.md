@@ -30,7 +30,7 @@ QtやOBSのDLLをプラグインフォルダーへ追加する必要はありま
 ZIPを展開し、PowerShellで展開先へ移動して次を実行します。
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\"Quick Recordをまとめてインストール.ps1"
+powershell -ExecutionPolicy Bypass -File .\"OBS Quick RecordとOBS起動アシストをまとめてインストール.ps1"
 ```
 
 UACの確認後、OBSプラグインをProgramDataへ配置し、OBS起動アシストをユーザー領域へコピーして、Windowsサインイン時の起動を登録します。OBS起動アシストはすぐに起動します。OBSが起動中の場合は、先に通知領域からOBSを終了してください。更新時はOBS起動アシストの通知領域メニューから終了してから実行してください。Windows起動時にOBS起動アシストを登録しない場合は `-NoStartup` を追加できます。
