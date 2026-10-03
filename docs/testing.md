@@ -353,3 +353,9 @@ DLL SHA-256: 85D355308B2520776004DA8374A2A864BC7F8DE52DFCD6AB39C1F92841EA7240
 Launcher SHA-256: 37E6C55A8356D97FDF6AACAA18C69725F772F9C3ECA663C90F80F2958D79D5BD
 
 通常版OBSは通知領域に隠れて実行中であり、PC導入のための正常終了・ファイル更新はユーザーの本体表示待ち。既存インストールはLauncher r1を保持している。200%・異種DPI・複数モニターなど、以前からの未確認条件は継続する。
+
+## 2026-10-03 レビュー修正版のPC導入完了
+
+ユーザーが通常版OBS本体を表示した後、UIで録画・配信が停止中であることを確認し、Alt+F4で正常終了。ProgramDataのDLLをレビュー修正版（SHA-256 85D355308B2520776004DA8374A2A864BC7F8DE52DFCD6AB39C1F92841EA7240）へ更新し、localeも揃えた。LauncherはLocalAppDataとProgramDataの両コピーを37E6C55A8356D97FDF6AACAA18C69725F772F9C3ECA663C90F80F2958D79D5BDへ更新し再起動済み。旧DLLとLauncherはworkspaceのrecovery/pre-review-r2-installへ保存。
+
+通常版OBSを最小化して再起動。13:32:05.473にhotkey registered、13:32:05.477にplugin loadedとモジュールobs-quick-record.dll、13:32:05.488にStartup completeを確認。既存設定はAlt+R、Enter確認、foregroundSafety=trueを保持。導入後の実キー操作・実録画は未実施で、実録画の検証は上記QA環境で実施したもの。QA OBSも正常終了し、13:32:33.234にNumber of memory leaks: 0。現在は通常版OBSのみ実行中。
