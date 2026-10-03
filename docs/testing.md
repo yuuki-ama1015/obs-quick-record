@@ -321,3 +321,7 @@ Escで選択画面をキャンセル。ユーザーにOBS終了後の実キーAl
 通常版更新DLL SHA-256: E3FA9746A954D7D414720ED280B0B08CB8DD3CF11B9C5BAB7A9A964A3D829EEF。LocalAppDataのLauncher SHA-256: A9777C391B72C3519CE5EE7507A2AC1D1771ECB29C1268AEBE6460E93D12DA6D。ユーザーStartupのLauncherショートカットを作成済み。Windows再ログインによる起動、ポータブル配置、ホットキー衝突の実機通知は未確認。ポータブル/カスタム配置は現版の対応対象外。
 
 開発に必要なコンパイラー・公式SDKだけをworkへ再取得した。既存QA設定バックアップと旧配布物は保持。新しい変更はローカル実装・導入で、GitHub公開済み改訂6にはLauncherは含まれない。
+
+## 2026-10-03 Launcher版GitHub公開
+
+73ed54eをpushし、v0.1.0-dev-launcher-r1をprereleaseとして公開。添付6点を再取得しローカル版とSHA-256一致。Windows CI https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/37091199849 は成功、CTest 7/7（43.59秒）、Launcher込みZIP artifact生成を確認した。公開DLLはこのPCで導入・起動確認したものを維持し、CI生成DLLを未検証のまま差し替えていない。

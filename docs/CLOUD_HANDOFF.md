@@ -61,3 +61,5 @@
 ビルド手順は `README.md` と `tools/prepare-sdk.ps1` を参照。Windows/MSVC/Qt環境を持たないクラウド作業では、ソース確認やドキュメント更新はできてもDLLビルド・OBS GUI・DPIの実機受入は完了できない。クラウド側で何を検証できたかを分けて報告する。
 
 2026-10-03追加: OBS終了中から選択画面を呼び出す任意Launcherをローカル実装・このPCへ導入した。コードはlauncher/、プラグインの要求受信はsrc/launcher-request.hppとQuickRecordController。CTest 7/7と通常版の起動・選択表示を確認。GitHub公開済みv0.1.0-dev-r6には含まれない。READMEのLauncher節とtesting.mdの追加記録を参照。
+
+2026-10-03公開追記: Launcher追加コミット73ed54eをmainへpushし、開発版v0.1.0-dev-launcher-r1を公開。最新配布物・ソースZIP・Git bundle・SHA-256の6点を再取得してローカル版との一致を確認。https://github.com/yuuki-ama1015/obs-quick-record/releases/tag/v0.1.0-dev-launcher-r1 を使用する。収録ソースは73ed54eで、この公開記録の後続文書コミットとは区別する。GitHub Actions 37091199849はWindowsビルド・CTest 7/7（43.59秒）・Launcher込みZIP生成に成功。
