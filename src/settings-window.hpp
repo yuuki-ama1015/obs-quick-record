@@ -4,5 +4,5 @@
 #include "hotkey-manager.hpp"
 class SettingsWindow : public QDialog {
 public:
-    SettingsWindow(Settings &settings, HotkeyManager &hotkey);
+    SettingsWindow(Settings &settings, HotkeyManager &hotkey, QWidget *obsWindow = nullptr);
 };

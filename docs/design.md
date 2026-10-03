@@ -52,3 +52,9 @@ OBS終了中の呼び出しは外部の.NET Framework/Win32 Launcherで受ける
 LauncherはPlugin Config Pathのlaunch-request.txtへ起動したOBS PIDだけを書く。プラグインはFINISHED_LOADING後のGUIタイマーで、対象PID一致・ファイルのサイズと60秒期限を確認し、一度だけ削除して通常toggleを呼ぶ。終了イベントでタイマーを停止し、終了後の呼び出しは無視する。要求は録画開始や対象座標を受け付けず、Idle時の選択画面表示に限る。前面安全設定と出力競合の判定を維持する。読み込み失敗・復旧確認などで60秒を超えればLauncherが取消・通知する。
 
 OBSのobs_key_to_virtual_key（32.2.2のobs-hotkey.hで確認）で主要bindingのWindows仮想キーと修飾キーをsettings.jsonへ保存し、OBS終了後のLauncherが同じキーを使う。主binding以外の追加binding、マウスキー、ポータブル/カスタム配置の起動振り分けは対象外。OBS起動中のbindingは既存実装のまま。
+
+## Auto Stop設定への任意のUI導線
+
+ユーザーの追加指示により、設定画面だけは既存Auto Stop UIを開く任意の連携を許可した。Auto Stopのplugin-main.cppで登録されたQDockWidgetのobjectName `obs-auto-stop-dock` を、OBS標準Frontend APIで取得したmain widget配下から探す。QtのsetFloatingと通常Window属性で独立表示する。Auto Stopコードの変更・リンク・固有API呼び出し・設定ファイルの直接編集は行わない。録画制御は従来通り標準イベントだけを利用する。
+
+対応ドックが存在しない場合はボタンを無効化し、QPointerによりドック削除後のクリックも安全に扱う。ドックの所有権はOBSに残す。既存ドック配置はフロート表示に変わる。将来Auto Stopが登録IDを変更した場合は、この任意のUI導線のみ更新が必要。

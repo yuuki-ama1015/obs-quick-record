@@ -6,6 +6,9 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QVBoxLayout>
+#include <QDockWidget>
+#include <QPointer>
+#include <QPushButton>
 #include <util/dstr.h>
 
 static QString bindingText(obs_key_combination_t binding)
@@ -51,7 +54,7 @@ private:
     obs_key_combination_t binding;
 };
 
-SettingsWindow::SettingsWindow(Settings &settings, HotkeyManager &hotkey) : QDialog(nullptr)
+SettingsWindow::SettingsWindow(Settings &settings, HotkeyManager &hotkey, QWidget *obsWindow) : QDialog(nullptr)
 {
     setWindowTitle(text("Settings"));
     setWindowFlag(Qt::WindowStaysOnTopHint);
@@ -81,6 +84,24 @@ SettingsWindow::SettingsWindow(Settings &settings, HotkeyManager &hotkey) : QDia
     auto *help = new QLabel(text("RestoreHelp"));
     help->setWordWrap(true);
     layout->addWidget(help);
+    // Optional UI integration only: OBS owns this dock and Auto Stop owns its settings.
+    auto *autoStop = new QPushButton(text("OpenAutoStop"));
+    autoStop->setObjectName("openAutoStop");
+    const QPointer<QDockWidget> dock = obsWindow
+        ? obsWindow->findChild<QDockWidget *>("obs-auto-stop-dock") : nullptr;
+    autoStop->setEnabled(!dock.isNull());
+    autoStop->setToolTip(text(dock ? "AutoStopHelp" : "AutoStopUnavailable"));
+    layout->addWidget(autoStop);
+    connect(autoStop, &QPushButton::clicked, this, [dock, autoStop] {
+        if (!dock) { autoStop->setEnabled(false); return; }
+        dock->setFloating(true);
+        // A normal window stays usable when the OBS owner is minimized/hidden.
+        dock->setWindowFlags((dock->windowFlags() & ~Qt::WindowType_Mask) |
+                             Qt::Window | Qt::WindowMinimizeButtonHint | Qt::WindowCloseButtonHint);
+        dock->showNormal();
+        dock->raise();
+        dock->activateWindow();
+    });
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);
     layout->addWidget(buttons);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);

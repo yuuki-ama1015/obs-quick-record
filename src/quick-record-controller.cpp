@@ -176,7 +176,7 @@ void QuickRecordController::showSettings()
     if (shuttingDown || pending || state == QuickRecordState::Recording) return;
     finish();
     if (!settingsWindow) {
-        settingsWindow = new SettingsWindow(settings, hotkey);
+        settingsWindow = new SettingsWindow(settings, hotkey, static_cast<QWidget *>(obs_frontend_get_main_window()));
         settingsWindow->setAttribute(Qt::WA_DeleteOnClose);
         connect(settingsWindow, &QDialog::accepted, this, [this] { hotkey.save(settings.data); settings.save(); });
     }

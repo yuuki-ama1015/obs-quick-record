@@ -359,3 +359,9 @@ Launcher SHA-256: 37E6C55A8356D97FDF6AACAA18C69725F772F9C3ECA663C90F80F2958D79D5
 ユーザーが通常版OBS本体を表示した後、UIで録画・配信が停止中であることを確認し、Alt+F4で正常終了。ProgramDataのDLLをレビュー修正版（SHA-256 85D355308B2520776004DA8374A2A864BC7F8DE52DFCD6AB39C1F92841EA7240）へ更新し、localeも揃えた。LauncherはLocalAppDataとProgramDataの両コピーを37E6C55A8356D97FDF6AACAA18C69725F772F9C3ECA663C90F80F2958D79D5BDへ更新し再起動済み。旧DLLとLauncherはworkspaceのrecovery/pre-review-r2-installへ保存。
 
 通常版OBSを最小化して再起動。13:32:05.473にhotkey registered、13:32:05.477にplugin loadedとモジュールobs-quick-record.dll、13:32:05.488にStartup completeを確認。既存設定はAlt+R、Enter確認、foregroundSafety=trueを保持。導入後の実キー操作・実録画は未実施で、実録画の検証は上記QA環境で実施したもの。QA OBSも正常終了し、13:32:33.234にNumber of memory leaks: 0。現在は通常版OBSのみ実行中。
+
+## 2026-10-03 Auto Stop設定ボタン
+
+Quick Record設定に日本語・英語の「自動停止設定を開く」を追加。既存の `obs-auto-stop-dock` をQt通常Windowとしてフロート表示する任意のUI連携。Auto Stop未導入時の無効化、OBS最小化中・非表示中のドック表示、削除済みドックの安全な扱いを既存hotkey-checkへ追加した。MSVC/OBS 32.2.2/Qt 6.11.1でビルド成功、CTest 7/7成功（45.50秒）。
+
+実OBSの独立QA環境へ試験DLLとlocaleを配置し起動。設定画面の表示操作後にウィンドウが操作ツールの一覧から取得できなくなったため、実Auto Stop画面の表示・設定保存・通常版OBSへの導入は未確認。QAプロセスは応答中でクラッシュ記録なし。ユーザーへQA本体の表示を依頼済み。この変更を導入済みまたは実機確認済みとは扱わない。

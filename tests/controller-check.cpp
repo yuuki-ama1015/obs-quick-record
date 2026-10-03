@@ -76,6 +76,7 @@ extern "C" {
 const char *obs_module_text(const char *key) { return std::strcmp(key, "Counting") ? key : "Counting %1"; }
 void *obs_frontend_add_tools_menu_qaction(const char *) { return new QAction; }
 void *obs_frontend_get_main_window_handle() { return nullptr; }
+void *obs_frontend_get_main_window() { return nullptr; }
 void obs_frontend_add_event_callback(obs_frontend_event_cb callback, void *data)
 { assert(!qa.callback); qa.callback = callback; qa.callbackData = data; }
 void obs_frontend_remove_event_callback(obs_frontend_event_cb callback, void *data)
