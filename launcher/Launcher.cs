@@ -29,7 +29,7 @@ sealed class Launcher : ApplicationContext
     readonly string config = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "obs-studio", "plugin_config", "obs-quick-record");
     readonly HotkeyWindow window = new HotkeyWindow();
     readonly System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer { Interval = 500 };
-    readonly NotifyIcon icon = new NotifyIcon { Icon = System.Drawing.SystemIcons.Application, Text = "OBS Quick Record Launcher", Visible = true };
+    readonly NotifyIcon icon = new NotifyIcon { Icon = System.Drawing.SystemIcons.Application, Text = Text("OBS起動アシスト", "OBS startup assistant"), Visible = true };
     string registered = "", lastError = "";
     bool ownsKey;
     DateTime pendingUntil = DateTime.MinValue;
@@ -79,8 +79,8 @@ sealed class Launcher : ApplicationContext
         // Windows locks the running EXE; a short-lived native PowerShell helper waits for exit.
         return "$ErrorActionPreference='Stop'\n$exe=" + PsQuote(exe) + "\n$expectedHash=" + PsQuote(Hash(exe)) +
             "\n$parentId=" + parentId + "\n$showResult=" + (showResult ? "$true" : "$false") +
-            "\n$success=" + PsQuote(Text("ランチャーを削除しました。OBSのQuick Recordプラグインと設定は保持しています。", "Launcher removed. The OBS Quick Record plugin and settings are retained.")) +
-            "\n$failure=" + PsQuote(Text("ランチャーの削除に失敗しました。", "Could not remove the Launcher.")) + @"
+            "\n$success=" + PsQuote(Text("OBS起動アシストを削除しました。OBSのQuick Recordプラグインと設定は保持しています。", "OBS startup assistant removed. The OBS Quick Record plugin and settings are retained.")) +
+            "\n$failure=" + PsQuote(Text("OBS起動アシストの削除に失敗しました。", "Could not remove OBS startup assistant.")) + @"
 try {
     $parent=Get-Process -Id $parentId -ErrorAction SilentlyContinue
     if ($parent) {
@@ -95,10 +95,10 @@ try {
     [IO.File]::Delete($exe)
     $folder=Split-Path -Parent $exe
     if ((Get-ChildItem -LiteralPath $folder -Force | Measure-Object).Count -eq 0) { [IO.Directory]::Delete($folder, $false) }
-    if ($showResult) { Add-Type -AssemblyName System.Windows.Forms; [void][Windows.Forms.MessageBox]::Show($success, 'OBS Quick Record Launcher') }
+    if ($showResult) { Add-Type -AssemblyName System.Windows.Forms; [void][Windows.Forms.MessageBox]::Show($success, 'OBS startup assistant') }
 } catch {
     [Console]::Error.WriteLine($_.Exception.Message)
-    if ($showResult) { Add-Type -AssemblyName System.Windows.Forms; [void][Windows.Forms.MessageBox]::Show($failure + [Environment]::NewLine + $_.Exception.Message, 'OBS Quick Record Launcher') }
+    if ($showResult) { Add-Type -AssemblyName System.Windows.Forms; [void][Windows.Forms.MessageBox]::Show($failure + [Environment]::NewLine + $_.Exception.Message, 'OBS startup assistant') }
     exit 1
 } finally { Remove-Item -LiteralPath $PSCommandPath -ErrorAction SilentlyContinue }
 ";
@@ -116,13 +116,13 @@ try {
     }
     void Uninstall()
     {
-        if (MessageBox.Show(Text("ランチャーをアンインストールしますか？\n自動起動を解除してランチャーを削除します。\nOBSのQuick Recordプラグインと設定は保持します。", "Uninstall the Launcher?\nAutomatic startup will be disabled and the Launcher removed.\nThe OBS Quick Record plugin and settings will be retained."),
-            "OBS Quick Record Launcher", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;
+        if (MessageBox.Show(Text("OBS起動アシストをアンインストールしますか？\n自動起動を解除してOBS起動アシストを削除します。\nOBSのQuick Recordプラグインと設定は保持します。", "Uninstall OBS startup assistant?\nAutomatic startup will be disabled and the OBS startup assistant removed.\nThe OBS Quick Record plugin and settings will be retained."),
+            Text("OBS起動アシスト", "OBS startup assistant"), MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;
         try
         {
             string exe = ExecutablePath;
             string root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "AppData", "Local");
-            if (!SafeInstalledPath(exe, root)) throw new InvalidOperationException(Text("インストール済みのランチャーから実行してください。展開・開発用フォルダーのファイルは削除しません。", "Run this from the installed Launcher. Files in extracted or development folders will not be removed."));
+            if (!SafeInstalledPath(exe, root)) throw new InvalidOperationException(Text("インストール済みのOBS起動アシストから実行してください。展開・開発用フォルダーのファイルは削除しません。", "Run this from the installed OBS startup assistant. Files in extracted or development folders will not be removed."));
             SetStartup(false, StartupPath, exe);
             using (Process helper = StartRemoval(exe, Process.GetCurrentProcess().Id, true)) { }
             ExitThread();
@@ -175,7 +175,7 @@ try {
     {
         if (message == lastError) return;
         lastError = message;
-        icon.ShowBalloonTip(5000, "OBS Quick Record Launcher", message, ToolTipIcon.Warning);
+        icon.ShowBalloonTip(5000, Text("OBS起動アシスト", "OBS startup assistant"), message, ToolTipIcon.Warning);
         Log(message);
     }
     void Log(string message)
@@ -233,8 +233,8 @@ try {
             catch (Exception exception) { Error(exception.Message); }
         };
         menu.Items.Add(startup);
-        menu.Items.Add(Text("ランチャーをアンインストール…", "Uninstall Launcher…"), null, (sender, args) => Uninstall());
-        menu.Items.Add(Text("ランチャーを終了", "Exit launcher"), null, (sender, args) => ExitThread());
+        menu.Items.Add(Text("OBS起動アシストをアンインストール…", "Uninstall OBS startup assistant…"), null, (sender, args) => Uninstall());
+        menu.Items.Add(Text("OBS起動アシストを終了", "Exit OBS startup assistant"), null, (sender, args) => ExitThread());
         icon.ContextMenuStrip = menu;
         timer.Tick += Refresh; Refresh(null, EventArgs.Empty); timer.Start();
     }

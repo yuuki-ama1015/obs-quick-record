@@ -9,53 +9,54 @@ OBSを最小化したまま、録画する範囲・ウィンドウ・モニタ�
 ------------------------
 ・Windows 10 / 11の64bit版、OBS Studio 32.2.2を使用してください。
 ・OBSは通常版を標準の場所にインストールしてください。
-  Launcherは C:\Program Files\obs-studio\bin\64bit\obs64.exe を起動します。
-  Launcherによるポータブル版・独自のインストール先への対応はありません。
+  OBS起動アシストは C:\Program Files\obs-studio\bin\64bit\obs64.exe を起動します。
+  OBS起動アシストによるポータブル版・独自のインストール先への対応はありません。
 ・OBSの「設定 → 出力」で録画の保存先・形式・エンコーダを設定します。
   「設定 → 音声」でデスクトップ音声やマイクも設定してください。
   Quick RecordはOBSの出力解像度・録画設定をそのまま使用します。
 ・自動停止を使いたい場合は、OBS Auto Stopを別途導入・設定してください。
   Auto StopはこのZIPには同梱されていません。
 
-2. プラグインとLauncherをまとめて導入する
+2. プラグインとOBS起動アシストをまとめて導入する
+OBS起動アシストは、OBSが終了していてもショートカットキーで起動できる機能です。
 ---------------------------------------
 ① 録画・配信を停止し、OBSを終了します。
    通知領域にOBSが残っている場合は、OBSアイコンのメニューから終了します。
-   更新の場合はQuick Record Launcherも通知領域の「ランチャーを終了」で終了します。
-   英語表示の場合は「Exit launcher」です。
+   更新の場合はOBS起動アシストも通知領域の「OBS起動アシストを終了」で終了します。
+   英語表示の場合は「Exit OBS startup assistant」です。
    アイコンが見えないときは、タスクバー右端の「隠れているインジケーター」を開きます。
 ② ダウンロードしたZIPを右クリックして「すべて展開」します。
    ZIPの中から直接実行せず、展開したファイルを使ってください。
 ③ 展開先の「obs-quick-record」フォルダーを開きます。
-   Quick Recordとランチャーをインストール.ps1、使い方.txt、bin、dataが並んでいる場所です。
+   Quick Recordをまとめてインストール.ps1、使い方.txt、bin、dataが並んでいる場所です。
 ④ エクスプローラー上部のアドレス欄に powershell と入力してEnterを押します。
    そのフォルダーを作業場所にしたPowerShellが開きます。
 ⑤ 次の1行をコピーしてPowerShellへ貼り付け、Enterを押します。
 
-   powershell -ExecutionPolicy Bypass -File .\"Quick Recordとランチャーをインストール.ps1"
+   powershell -ExecutionPolicy Bypass -File .\"Quick Recordをまとめてインストール.ps1"
 
 ⑥ ユーザーアカウント制御（UAC）の確認画面で「はい」を選びます。
    この配布ZIP内のスクリプトを実行するときだけの指定です。
    Windows全体のPowerShell実行ポリシーを変更する必要はありません。
-⑦ 「Quick Record and its Launcher are installed.」が表示されたら導入完了です。
+⑦ 「Quick Record and OBS startup assistant are installed.」が表示されたら導入完了です。
    開いたPowerShellのウィンドウは閉じて構いません。
 
 この操作で行われること：
 ・OBSプラグインを C:\ProgramData\obs-studio\plugins\obs-quick-record に配置
-・LauncherをユーザーのLocalAppData\OBSQuickRecordLauncherに配置して起動
-・Windowsサインイン時にLauncherが起動するよう登録
+・OBS起動アシストをユーザーのLocalAppData\OBSQuickRecordLauncherに配置して起動
+・Windowsサインイン時にOBS起動アシストが起動するよう登録
 
 Windowsサインイン時の自動起動を登録したくない場合は、⑤を次に変えます。
 
-   powershell -ExecutionPolicy Bypass -File .\"Quick Recordとランチャーをインストール.ps1" -NoStartup
+   powershell -ExecutionPolicy Bypass -File .\"Quick Recordをまとめてインストール.ps1" -NoStartup
 
-この指定でも、導入直後のLauncherは起動します。既存の自動起動登録は削除しません。
+この指定でも、導入直後のOBS起動アシストは起動します。既存の自動起動登録は削除しません。
 自動起動の解除方法は「8. 終了・自動起動解除・アンインストール」を参照してください。
 
 3. 録画する
 -----------
 ① OBSを最小化し、録画したいアプリを前面にします。
-   Launcherが動作中なら、OBSが終了していてもAlt＋RでOBSを起動できます。
+   OBS起動アシストが動作中なら、OBSが終了していてもAlt＋RでOBSを起動できます。
 ② Alt＋Rを押します。Quick Recordの選択画面が表示されます。
 ③ 上部のボタンから録画方法を選び、対象を指定します。
 
@@ -79,7 +80,7 @@ Windowsサインイン時の自動起動を登録したくない場合は、⑤�
    OBS本体を表示している場合は「ツール → Quick Record 設定」からも開けます。
 ② ショートカット欄をクリックし、使いたいキーの組み合わせを押します。
 ③ 設定画面の「保存」を押します。以後、呼び出しと録画停止は新しいキーになります。
-   OBS終了中のLauncherにも変更が反映されます。
+   OBS終了中のOBS起動アシストにも変更が反映されます。
 
 主な設定：
 ・Enterで確認して開始：選択後にEnterで開始します。初期設定・推奨です。
@@ -109,12 +110,12 @@ Quick Recordだけでは動画終了や無音を検出して自動停止しま�
 -------------
 ・Alt＋Rで反応しない
   OBSが前面なら、別のアプリを前面にして試してください。
-  OBS終了中なら、通知領域にLauncherがあるか確認してください。
-  Launcherを手動起動する場合は、エクスプローラーのアドレス欄で
+  OBS終了中なら、通知領域にOBS起動アシストがあるか確認してください。
+  OBS起動アシストを手動起動する場合は、エクスプローラーのアドレス欄で
   %LOCALAPPDATA%\OBSQuickRecordLauncher を開き、
   obs-quick-record-launcher.exeを起動します。
   競合の通知が出る場合は別のショートカットへ変更してください。
-・導入時に「Exit OBS」または「Exit Quick Record Launcher」と表示される
+・導入時に「Exit OBS」または「Exit OBS起動アシスト」と表示される
   対象のアプリを通知領域も含めて終了し、もう一度導入コマンドを実行します。
 ・OBS終了中から起動したが選択画面が出ない
   OBSのエラー・復旧確認などの画面があれば操作してください。
@@ -137,34 +138,34 @@ Quick Recordだけでは動画終了や無音を検出して自動停止しま�
 
 7. 更新する
 -----------
-OBSとLauncherを通常終了し、新版ZIPを別のフォルダーへ展開してください。
-「2. プラグインとLauncherをまとめて導入する」と同じ手順を実行します。
+OBSとOBS起動アシストを通常終了し、新版ZIPを別のフォルダーへ展開してください。
+「2. プラグインとOBS起動アシストをまとめて導入する」と同じ手順を実行します。
 既存のOBS録画設定とQuick Record設定はそのまま使用します。
 この説明書と展開したZIPは、導入後も確認できる場所に保管してください。
 
 8. 終了・自動起動解除・アンインストール
 -------------------------------------
-・Launcherを終了する：通知領域のアイコンを右クリックし、「ランチャーを終了」を選びます。
-  OBS自体は別に終了してください。Launcherの終了だけではOBSは終了しません。
+・OBS起動アシストを終了する：通知領域のアイコンを右クリックし、「OBS起動アシストを終了」を選びます。
+  OBS自体は別に終了してください。OBS起動アシストの終了だけではOBSは終了しません。
 ・自動起動をOFFにする：通知領域のアイコンを右クリックし、
   「サインイン時の自動起動を登録」をクリックしてチェックを外します。
-  次回のWindowsサインインから起動しなくなります。現在のLauncherは終了しません。
+  次回のWindowsサインインから起動しなくなります。現在のOBS起動アシストは終了しません。
   もう一度チェックを付けると自動起動の登録を戻せます。
   Windowsのタスクマネージャーなどでも起動を無効化している場合は、そちらも確認します。
-・Launcherをアンインストールする：通知領域のアイコンを右クリックし、
-  「ランチャーをアンインストール…」→確認画面で「はい」を選びます。
-  自動起動を解除し、現在使用中のLauncherを終了・削除します。
+・OBS起動アシストをアンインストールする：通知領域のアイコンを右クリックし、
+  「OBS起動アシストをアンインストール…」→確認画面で「はい」を選びます。
+  自動起動を解除し、現在使用中のOBS起動アシストを終了・削除します。
   OBSのQuick Recordプラグイン、設定、ほかのファイルは保持します。
   保存先を探す必要はありません。管理者による手動配置などで削除権限がない場合は通知します。
   展開したZIPや開発用フォルダーから実行している場合は、誤削除防止のため削除を拒否します。
 
-英語表示では「Register automatic startup at sign-in」「Uninstall Launcher…」です。
+英語表示では「Register automatic startup at sign-in」「Uninstall OBS startup assistant…」です。
 
 メニューを使えない場合の手動操作：
 ・自動起動を解除する：エクスプローラーのアドレス欄で
   %APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup を開き、
   「OBS Quick Record Launcher」のショートカットだけを削除します。
-・プラグインも含めて削除する：録画停止後にOBSとLauncherを終了し、上の自動起動を解除します。
+・プラグインも含めて削除する：録画停止後にOBSとOBS起動アシストを終了し、上の自動起動を解除します。
   次のQuick Record専用フォルダーを削除します。管理者確認が出る場合があります。
   C:\ProgramData\obs-studio\plugins\obs-quick-record
   %LOCALAPPDATA%\OBSQuickRecordLauncher

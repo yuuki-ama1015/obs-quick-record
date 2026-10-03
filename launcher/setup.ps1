@@ -21,7 +21,7 @@ if (Get-Process -Name obs64 -ErrorAction SilentlyContinue) {
     throw 'Exit OBS from its tray icon before installing or updating Quick Record.'
 }
 if (Get-Process -Name obs-quick-record-launcher -ErrorAction SilentlyContinue) {
-    throw 'Exit Quick Record Launcher from its tray menu before installing or updating.'
+    throw 'Exit OBS startup assistant from its tray menu before installing or updating.'
 }
 
 $pluginDestination = Join-Path $env:ProgramData 'obs-studio/plugins/obs-quick-record'
@@ -43,5 +43,5 @@ if (!$NoStartup) {
 }
 
 Start-Process -FilePath $launcherExe -WindowStyle Hidden
-Write-Host 'Quick Record and its Launcher are installed. OBS will load the plugin the next time it starts.'
-if (!$NoStartup) { Write-Host 'The Launcher will also start automatically when you sign in to Windows.' }
+Write-Host 'Quick Record and OBS startup assistant are installed. OBS will load the plugin the next time it starts.'
+if (!$NoStartup) { Write-Host 'OBS startup assistant will also start automatically when you sign in to Windows.' }
