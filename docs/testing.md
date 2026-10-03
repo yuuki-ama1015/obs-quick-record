@@ -333,4 +333,23 @@ Escで選択画面をキャンセル。ユーザーにOBS終了後の実キーAl
 - 一時scene itemの追加参照を保持し、削除・所属変更・source/scene削除をFailed readinessとして扱う。実libobsで準備中にitemを削除し、readyがFailed、startがfalse、cleanupで一時sceneが削除されることを確認。controllerの境界テストでも準備を中止して再選択できることを確認。
 - 同一タイトルの候補（大小文字違い・別class/exeを含む）は拒否。OBS標準のBitBlt/WGC探索が選択HWNDを返すか準備中と開始直前に検証し、get_hookedの取得情報を元ソースとProgram側でも確認する。capture-recovery-checkではキャプチャドライバーとfrontendを代替し、実libobs scene/transitionを使用。同名候補の拒否、寸法だけでは開始しないこと、別class取得時にProgramを切り替えないこと、正しい取得では待機後に開始要求できること、cleanupによる元Program復帰を確認。
 
-MSVC/OBS 32.2.2/Qt 6.11.1のReleaseビルド成功。全7チェックは44.90秒で成功。その後、取得対象一致から開始までの確認を追加し、最終capture-recovery-checkを再ビルド・再実行して0.33秒で成功。デスクトップの入力操作や実録画は実施していない。変更版はローカルビルドで、通常版OBSへの導入・GitHub公開・実OBSでのウィンドウ録画再確認は未実施。
+MSVC/OBS 32.2.2/Qt 6.11.1のRelWithDebInfoビルド成功。全7チェックは44.90秒で成功。その後、取得対象一致から開始までの確認を追加し、最終capture-recovery-checkを再ビルド・再実行して0.33秒で成功。デスクトップの入力操作や実録画は実施していない。変更版はローカルビルドで、通常版OBSへの導入・GitHub公開・実OBSでのウィンドウ録画再確認は未実施。
+
+
+## 2026-10-03 レビュー修正版の実OBS確認・公開
+
+コードコミット562f1fb。公式OBS 32.2.2の独立したポータブルQA環境を再構築して検証した。通常版OBSの設定は変更していない。QAでは前面時開始禁止だけをOFFにし、対象PIDを指定したLauncher要求ファイルから選択UIを開いた。今回の試験は実キーAlt+Rの確認ではない。
+
+- Alt+F4で選択画面が閉じ、再度の要求で開けることを実UIで確認。録画は開始されなかった。
+- 4色の単一ウィンドウを選択しEnterで実録画。H.264/AAC、1920×1080、5.366秒のMKVをFFprobeで確認し、FFmpegによる全編デコードでエラーなし。抽出フレームで4色がCanvas全体に表示され、選択UI・タイトルバーが映っていないことを確認。
+- obs-auto-stopは通常の録画イベントから監視を開始し、静止5秒で停止要求。12:51:52.635にSTOPPED、12:51:52.645に元シーン復帰・一時シーン削除。停止イベント後の後処理は約10ms。
+- 同名の対象ウィンドウを2つ開いた試験では、12:54:27.873に `window title is ambiguous; refusing capture` とStartFailedを記録し、開始失敗通知を表示。録画ファイルは増えず、誤った対象を録画しなかった。
+- 証跡はローカル `work/qa-review-r2/config/obs-studio/logs/2026-10-03 12-48-06.txt` と `work/recordings-review-r2/`。QA初回起動時のlocale配置ミスをディスク上で修正したが、当該セッションのUIは翻訳キー表示で試験した。
+
+[Windows CI](https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/37094357421)も成功。公式SDK準備、Releaseビルド、7チェック、ZIP artifact生成がすべて成功した。配布ZIPには実OBSで確認したローカルRelWithDebInfo版を収録する。
+
+DLL SHA-256: 85D355308B2520776004DA8374A2A864BC7F8DE52DFCD6AB39C1F92841EA7240
+
+Launcher SHA-256: 37E6C55A8356D97FDF6AACAA18C69725F772F9C3ECA663C90F80F2958D79D5BD
+
+通常版OBSは通知領域に隠れて実行中であり、PC導入のための正常終了・ファイル更新はユーザーの本体表示待ち。既存インストールはLauncher r1を保持している。200%・異種DPI・複数モニターなど、以前からの未確認条件は継続する。
