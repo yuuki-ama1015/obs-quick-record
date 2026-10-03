@@ -58,7 +58,9 @@ sealed class Launcher : ApplicationContext
         var key = keys[0] as Dictionary<string, object>;
         string name = Convert.ToString(key["key"]).Replace("OBS_KEY_", "");
         Keys virtualKey;
-        if (!Enum.TryParse<Keys>(name, true, out virtualKey)) throw new InvalidDataException("Open OBS once to synchronize this shortcut.");
+        if (name.Length == 1 && name[0] >= '0' && name[0] <= '9') virtualKey = (Keys)name[0];
+        else if (!Enum.TryParse<Keys>(name, true, out virtualKey) || !Enum.IsDefined(typeof(Keys), virtualKey))
+            throw new InvalidDataException("Open OBS once to synchronize this shortcut.");
         uint modifiers = 0;
         foreach (var entry in new[] { "alt", "control", "shift", "command" })
         {
@@ -141,6 +143,13 @@ sealed class Launcher : ApplicationContext
         if (args.Length == 1 && args[0] == "--check")
         {
             uint[] initial = Binding(null), changed = Binding("{\"launcherVirtualKey\":121,\"launcherModifiers\":6}"), unbound = Binding("{\"hotkey\":[]}"), legacy = Binding("{\"hotkey\":[{\"alt\":true,\"key\":\"OBS_KEY_R\"}]}");
+            for (int digit = 0; digit <= 9; ++digit)
+            {
+                uint[] binding = Binding("{\"hotkey\":[{\"alt\":true,\"key\":\"OBS_KEY_" + digit + "\"}]}");
+                if (binding[0] != 1 || binding[1] != 0x30 + digit) return 1;
+            }
+            try { Binding("{\"hotkey\":[{\"key\":\"OBS_KEY_999\"}]}"); return 1; }
+            catch (InvalidDataException) {}
             return initial[0] == 1 && initial[1] == 82 && changed[0] == 6 && changed[1] == 121 && unbound[1] == 0 && legacy[0] == 1 && legacy[1] == 82 ? 0 : 1;
         }
         bool created;
