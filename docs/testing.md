@@ -379,3 +379,9 @@ Quick Record設定がドックを覆う問題を避けるため、開くドッ�
 ## 2026-10-03 Auto Stop未導入時の非表示
 
 ユーザー指定で未導入時のボタン無効化を非表示へ変更。設定画面を開いている間にドックが削除された場合もdestroyed通知で直ちに隠す。MSVCビルド成功。hotkey-checkで未導入時の非表示、導入時の表示、削除直後の非表示と削除後クリックを確認し成功（0.22秒）。この追加変更はローカル実装・ビルド済みで、通常版OBSへの追加更新とGitHub公開は未実施。
+
+## 2026-10-03 非表示対応のPC導入・GitHub反映
+
+コード5a53f60で全7チェックを再実行し44.59秒で成功。通常版OBSが録画・配信していないことをUIで確認して正常終了、旧DLLをrecovery/pre-hide-autostop-installへ退避して最新DLLとlocaleをProgramDataへ導入。DLL SHA-256: FEB2E14BE9399C644107445E812FA2C757374D02C5E991AE353518CF9746C736。15:14:46.283にplugin loaded、15:14:46.291にStartup complete。Alt+R・foregroundSafety=trueを保持。QAも正常終了し、現在は通常版のみ実行中。
+
+GitHubへコードをpush済み。Windows CIは https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/37102360869 。配布版はv0.1.0-dev-autostop-settings-r1として、PCへ導入したRelWithDebInfo DLLとLauncher、locale、ドキュメントを同梱する。ソースZIP・Git bundle・各SHA-256も提供する。未導入時の非表示はQtテストで検証し、Auto Stop DLLを実際にアンインストールする試験は行っていない。導入済みAuto StopのUI・保存は上記QA確認の範囲で、最新非表示版での通常版UI再操作は未実施。
