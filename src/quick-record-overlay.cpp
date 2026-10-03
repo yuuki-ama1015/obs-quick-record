@@ -4,6 +4,7 @@
 #include "window-selector.hpp"
 #include "settings.hpp"
 #include <QApplication>
+#include <QCloseEvent>
 #include <QEvent>
 #include <QKeyEvent>
 #include <QLabel>
@@ -76,6 +77,12 @@ public:
     }
     void mousePressEvent(QMouseEvent *e) override { if (e->button() == Qt::LeftButton) owner.press(physicalPoint(e)); }
     void mouseReleaseEvent(QMouseEvent *e) override { if (e->button() == Qt::LeftButton) owner.release(physicalPoint(e)); }
+    void closeEvent(QCloseEvent *event) override
+    {
+        owner.hide();
+        emit owner.canceled();
+        event->accept();
+    }
 };
 QuickRecordOverlay::QuickRecordOverlay()
 {

@@ -69,5 +69,19 @@ int main(int argc, char **argv)
     assert(canceled == 1 && !surface->isVisible());
     key(surface, Qt::Key_Return);
     assert(confirmed == 2); // Hidden surfaces never accept Enter.
+    overlay.open();
+    surface = nullptr;
+    for (auto *widget : QApplication::topLevelWidgets())
+        if (widget->isVisible() && widget->windowTitle().startsWith("Title")) surface = widget;
+    assert(surface);
+    surface->close(); // Alt+F4/WM_CLOSE must use the same cancellation path as Esc.
+    assert(canceled == 2);
+    for (auto *widget : QApplication::topLevelWidgets())
+        if (widget->windowTitle().startsWith("Title")) assert(!widget->isVisible());
+    overlay.open();
+    bool reopened = false;
+    for (auto *widget : QApplication::topLevelWidgets())
+        if (widget->isVisible() && widget->windowTitle().startsWith("Title")) reopened = true;
+    assert(reopened);
     std::cout << "selection confirmation, scoped Enter/Escape, repeat and mode reset passed\n";
 }
