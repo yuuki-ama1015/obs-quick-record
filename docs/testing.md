@@ -375,3 +375,7 @@ Quick Record設定がドックを覆う問題を避けるため、開くドッ�
 録画・配信していない通常版OBSをUIで確認し正常終了、旧DLLをrecovery/pre-auto-stop-settings-installへ退避して新DLLとlocaleをProgramDataへ更新。DLL SHA-256: 55AF7E2B5DB650A112D2B48B1CC5FAE265662CE71B6D202886B63E20E03CE14B。最小化再起動後14:38:01.644にplugin loaded、14:38:02.298にAuto Stop dock registered。Alt+R・Enter確認・foregroundSafety=trueを維持。
 
 通常版の14:39:04.383でsettings opened visible=1 x=690 y=254 w=520 h=506を記録したが、操作ツールの一覧へ設定ウィンドウが現れず、最終版の通常版Auto Stopボタン・前面表示はユーザーの画面回答待ち。Qtのvisibleログのみを実画面表示の証明とは扱わない。QAプロセスも通知領域に残っている。この機能のGitHub公開はまだ行っていない。
+
+## 2026-10-03 Auto Stop未導入時の非表示
+
+ユーザー指定で未導入時のボタン無効化を非表示へ変更。設定画面を開いている間にドックが削除された場合もdestroyed通知で直ちに隠す。MSVCビルド成功。hotkey-checkで未導入時の非表示、導入時の表示、削除直後の非表示と削除後クリックを確認し成功（0.22秒）。この追加変更はローカル実装・ビルド済みで、通常版OBSへの追加更新とGitHub公開は未実施。

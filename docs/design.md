@@ -57,4 +57,4 @@ OBSのobs_key_to_virtual_key（32.2.2のobs-hotkey.hで確認）で主要binding
 
 ユーザーの追加指示により、設定画面だけは既存Auto Stop UIを開く任意の連携を許可した。Auto Stopのplugin-main.cppで登録されたQDockWidgetのobjectName `obs-auto-stop-dock` を、OBS標準Frontend APIで取得したmain widget配下から探す。QtのsetFloatingと通常Window属性で独立表示する。Auto Stopコードの変更・リンク・固有API呼び出し・設定ファイルの直接編集は行わない。録画制御は従来通り標準イベントだけを利用する。
 
-対応ドックが存在しない場合はボタンを無効化し、QPointerによりドック削除後のクリックも安全に扱う。ドックの所有権はOBSに残す。既存ドック配置はフロート表示に変わる。将来Auto Stopが登録IDを変更した場合は、この任意のUI導線のみ更新が必要。
+対応ドックが存在しない場合はボタンを非表示にし、QPointerによりドック削除後のクリックも安全に扱う。ドックの所有権はOBSに残す。既存ドック配置はフロート表示に変わる。将来Auto Stopが登録IDを変更した場合は、この任意のUI導線のみ更新が必要。

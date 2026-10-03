@@ -89,11 +89,12 @@ SettingsWindow::SettingsWindow(Settings &settings, HotkeyManager &hotkey, QWidge
     autoStop->setObjectName("openAutoStop");
     const QPointer<QDockWidget> dock = obsWindow
         ? obsWindow->findChild<QDockWidget *>("obs-auto-stop-dock") : nullptr;
-    autoStop->setEnabled(!dock.isNull());
-    autoStop->setToolTip(text(dock ? "AutoStopHelp" : "AutoStopUnavailable"));
+    autoStop->setVisible(!dock.isNull());
+    autoStop->setToolTip(text("AutoStopHelp"));
     layout->addWidget(autoStop);
+    if (dock) connect(dock, &QObject::destroyed, autoStop, &QWidget::hide);
     connect(autoStop, &QPushButton::clicked, this, [dock, autoStop] {
-        if (!dock) { autoStop->setEnabled(false); return; }
+        if (!dock) { autoStop->hide(); return; }
         dock->setFloating(true);
         // A normal window stays usable when the OBS owner is minimized/hidden.
         dock->setWindowFlags((dock->windowFlags() & ~Qt::WindowType_Mask) |

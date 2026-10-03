@@ -32,7 +32,8 @@ int main(int argc, char **argv)
         expect(hotkey, INTERACT_ALT_KEY, OBS_KEY_R);
 
         SettingsWindow absent(settings, hotkey);
-        assert(!absent.findChild<QPushButton *>("openAutoStop")->isEnabled());
+        absent.show();
+        assert(absent.findChild<QPushButton *>("openAutoStop")->isHidden());
         QMainWindow mainWindow;
         auto *dock = new QDockWidget(&mainWindow);
         dock->setObjectName("obs-auto-stop-dock");
@@ -40,8 +41,9 @@ int main(int argc, char **argv)
         mainWindow.addDockWidget(Qt::RightDockWidgetArea, dock);
         mainWindow.showMinimized();
         SettingsWindow linked(settings, hotkey, &mainWindow);
+        linked.show();
         auto *open = linked.findChild<QPushButton *>("openAutoStop");
-        assert(open && open->isEnabled());
+        assert(open && open->isVisible());
         open->click();
         assert(mainWindow.isMinimized());
         assert(dock->isFloating() && dock->isVisible() && !dock->isMinimized());
@@ -51,8 +53,9 @@ int main(int argc, char **argv)
         open->click();
         assert(!mainWindow.isVisible() && dock->isVisible());
         delete dock;
+        assert(open->isHidden());
         open->click();
-        assert(!open->isEnabled());
+        assert(open->isHidden());
 
         auto other = obs_hotkey_register_frontend("test.other", "Other", [](void *, obs_hotkey_id, obs_hotkey_t *, bool) {}, nullptr);
         obs_key_combination_t otherKey{INTERACT_CONTROL_KEY, OBS_KEY_O};
