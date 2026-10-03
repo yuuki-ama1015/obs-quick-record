@@ -23,6 +23,18 @@ OBSを終了し、ZIP内の `obs-quick-record` フォルダーを `%ProgramData%
 
 QtやOBSのDLLをプラグインフォルダーへ追加する必要はありません。OBSログの `OBS Quick Record: plugin loaded` で読み込みを確認できます。
 
+### プラグインとLauncherをまとめて導入
+
+ZIPを展開し、PowerShellで展開先へ移動して次を実行します。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+UACの確認後、OBSプラグインをProgramDataへ配置し、Launcherをユーザー領域へコピーして、Windowsサインイン時の起動を登録します。Launcherはすぐに起動します。OBSが起動中の場合は、先に通知領域からOBSを終了してください。更新時はLauncherの通知領域メニューから終了してから実行してください。Windows起動時にLauncherを登録しない場合は `-NoStartup` を追加できます。
+
+プラグインだけを入れる場合は、上記DLLとlocaleの3ファイルを手動で配置します。
+
 ## 使い方
 
 1. OBSを最小化し、録画対象のアプリを前面にします。
@@ -56,7 +68,7 @@ Quick Record独立設定画面のショートカット欄をクリックし、�
 
 ## OBS終了中からの呼び出し
 
-配布フォルダーの `install-launcher.ps1 -StartWithWindows` をPowerShellで実行すると、LauncherをユーザーのLocalAppDataへコピーし、ログイン時に起動します。OBSプラグイン本体は先に上記の配置手順で導入してください。Windows標準の.NET Frameworkを利用します。停止は通知領域のLauncherアイコンから `Exit launcher`。ログイン時の起動を解除するには、スタートアップフォルダーの `OBS Quick Record Launcher.lnk` を削除します。
+手動でプラグインを配置した場合は、`install-launcher.ps1 -StartWithWindows` をPowerShellで実行するとLauncherをユーザーのLocalAppDataへコピーし、ログイン時に起動します。停止は通知領域のLauncherアイコンから `Exit launcher`。ログイン時の起動を解除するには、スタートアップフォルダーの `OBS Quick Record Launcher.lnk` を削除します。
 
 Launcher稼働中は、OBS終了中にAlt+Rを押すとOBSを起動し、読み込み後に選択画面を開きます。対象選択とEnter確認はこれまで通りです。OBS起動中はLauncherがキー登録を解除し、OBS標準Hotkey APIが担当します。呼び出しキーはQuick Record設定で変更でき、OBS終了後のLauncherにも反映されます。未割り当てやWindowsで登録できないキーは使用しません。別アプリと競合する場合は通知します。
 

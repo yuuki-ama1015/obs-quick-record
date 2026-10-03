@@ -43,6 +43,7 @@ add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/obs-quick-record-launcher
 add_custom_target(quick-record-launcher ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/obs-quick-record-launcher.exe")
 install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/obs-quick-record-launcher.exe" DESTINATION obs-quick-record/bin/64bit)
 install(FILES launcher/install.ps1 DESTINATION obs-quick-record RENAME install-launcher.ps1)
+install(FILES launcher/setup.ps1 DESTINATION obs-quick-record RENAME install.ps1)
 include(CTest)
 if(BUILD_TESTING)
   add_test(NAME launcher-binding-check COMMAND "${CMAKE_CURRENT_BINARY_DIR}/obs-quick-record-launcher.exe" --check)
