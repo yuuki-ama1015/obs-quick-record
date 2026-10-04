@@ -34,7 +34,7 @@ target_compile_options(obs-quick-record PRIVATE /W4 /utf-8 /permissive-)
 set_target_properties(obs-quick-record PROPERTIES PREFIX "")
 install(TARGETS obs-quick-record RUNTIME DESTINATION obs-quick-record/bin/64bit LIBRARY DESTINATION obs-quick-record/bin/64bit)
 install(DIRECTORY data/ DESTINATION obs-quick-record/data)
-install(FILES LICENSE README.md "使い方.txt" DESTINATION obs-quick-record)
+install(FILES LICENSE README.md AGENTS.md "使い方.txt" DESTINATION obs-quick-record)
 install(DIRECTORY docs/ DESTINATION obs-quick-record/docs)
 find_program(POWERSHELL_EXECUTABLE NAMES pwsh powershell REQUIRED)
 add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/obs-quick-record-launcher.exe"
