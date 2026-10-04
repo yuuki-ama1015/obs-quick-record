@@ -29,7 +29,14 @@ sealed class Launcher : ApplicationContext
     readonly string config = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "obs-studio", "plugin_config", "obs-quick-record");
     readonly HotkeyWindow window = new HotkeyWindow();
     readonly System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer { Interval = 500 };
-    readonly NotifyIcon icon = new NotifyIcon { Icon = System.Drawing.SystemIcons.Application, Text = Text("OBS起動アシスト", "OBS startup assistant"), Visible = true };
+    readonly System.Drawing.Icon trayIcon = LoadTrayIcon();
+    readonly NotifyIcon icon = new NotifyIcon { Text = Text("OBS起動アシスト", "OBS startup assistant") };
+    static System.Drawing.Icon LoadTrayIcon()
+    {
+        using (var stream = typeof(Launcher).Assembly.GetManifestResourceStream("obs-startup-assistant.ico"))
+        using (var image = new System.Drawing.Icon(stream, SystemInformation.SmallIconSize))
+            return (System.Drawing.Icon)image.Clone();
+    }
     string registered = "", lastError = "";
     bool ownsKey;
     DateTime pendingUntil = DateTime.MinValue;
@@ -223,6 +230,7 @@ try {
     }
     Launcher()
     {
+        icon.Icon = trayIcon; icon.Visible = true;
         window.Pressed = Launch;
         var menu = new ContextMenuStrip();
         menu.Items.Add(Text("録画対象の選択を開く", "Launch OBS selection"), null, (sender, args) => Launch());
@@ -275,13 +283,14 @@ try {
     }
     protected override void ExitThreadCore()
     {
-        timer.Stop(); ReleaseKey(); window.DestroyHandle(); icon.Visible = false; icon.Dispose(); timer.Dispose();
+        timer.Stop(); ReleaseKey(); window.DestroyHandle(); icon.Visible = false; icon.Dispose(); trayIcon.Dispose(); timer.Dispose();
         base.ExitThreadCore();
     }
     [STAThread] static int Main(string[] args)
     {
         if (args.Length == 1 && args[0] == "--check")
         {
+            using (var image = LoadTrayIcon()) if (image.Width <= 0 || image.Height <= 0) return 1;
             uint[] initial = Binding(null), changed = Binding("{\"launcherVirtualKey\":121,\"launcherModifiers\":6}"), unbound = Binding("{\"hotkey\":[]}"), legacy = Binding("{\"hotkey\":[{\"alt\":true,\"key\":\"OBS_KEY_R\"}]}");
             for (int digit = 0; digit <= 9; ++digit)
             {

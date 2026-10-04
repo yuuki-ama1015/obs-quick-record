@@ -39,7 +39,7 @@ install(DIRECTORY docs/ DESTINATION obs-quick-record/docs)
 find_program(POWERSHELL_EXECUTABLE NAMES pwsh powershell REQUIRED)
 add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/obs-quick-record-launcher.exe"
   COMMAND "${POWERSHELL_EXECUTABLE}" -NoProfile -File "${CMAKE_CURRENT_SOURCE_DIR}/launcher/build.ps1" -Output "${CMAKE_CURRENT_BINARY_DIR}/obs-quick-record-launcher.exe"
-  DEPENDS launcher/Launcher.cs launcher/build.ps1 VERBATIM)
+  DEPENDS launcher/Launcher.cs launcher/build.ps1 launcher/assets/obs-startup-assistant.ico VERBATIM)
 add_custom_target(quick-record-launcher ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/obs-quick-record-launcher.exe")
 install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/obs-quick-record-launcher.exe" DESTINATION obs-quick-record/bin/64bit)
 install(FILES launcher/install.ps1 DESTINATION obs-quick-record RENAME "OBS起動アシストのみをインストール.ps1")
