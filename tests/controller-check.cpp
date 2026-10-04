@@ -8,7 +8,12 @@
 #include <iostream>
 #include <thread>
 #include <obs-module.h>
-extern "C" obs_module_t *obs_current_module() { return nullptr; }
+#include <util/bmem.h>
+#include <QTemporaryDir>
+#include <QFile>
+#include <QCloseEvent>
+static bool moduleEnabled = false;
+extern "C" obs_module_t *obs_current_module() { return moduleEnabled ? reinterpret_cast<obs_module_t *>(1) : nullptr; }
 
 // Run the production controller, hotkey manager and settings dialog with real Qt
 // timers. Only capture/overlay/frontend boundaries are fakes: no desktop recording,
@@ -23,7 +28,17 @@ static struct {
     bool targetLost = false;
     bool otherOutput = false, replay = false, virtualCamera = false;
     int opens = 0, prepares = 0, starts = 0, stops = 0, cleanups = 0, staleCleanups = 0;
+    QWidget *main = nullptr;
+    QString requestPath;
 } qa;
+class MainWindow : public QWidget {
+public:
+    int closes = 0;
+    void closeEvent(QCloseEvent *event) override {
+        assert(!qa.visible && !qa.allocated && !qa.indicator && !qa.recording);
+        ++closes; event->accept();
+    }
+};
 
 static void event(obs_frontend_event value)
 {
@@ -76,7 +91,8 @@ extern "C" {
 const char *obs_module_text(const char *key) { return std::strcmp(key, "Counting") ? key : "Counting %1"; }
 void *obs_frontend_add_tools_menu_qaction(const char *) { return new QAction; }
 void *obs_frontend_get_main_window_handle() { return nullptr; }
-void *obs_frontend_get_main_window() { return nullptr; }
+void *obs_frontend_get_main_window() { return qa.main; }
+char *obs_module_get_config_path(obs_module_t *, const char *) { return bstrdup(qa.requestPath.toUtf8().constData()); }
 void obs_frontend_add_event_callback(obs_frontend_event_cb callback, void *data)
 { assert(!qa.callback); qa.callback = callback; qa.callbackData = data; }
 void obs_frontend_remove_event_callback(obs_frontend_event_cb callback, void *data)
@@ -132,6 +148,34 @@ int main(int argc, char **argv)
     assert(obs_startup("en-US", nullptr, nullptr));
     // Ignore physical hotkeys; only explicit routed callbacks drive these checks.
     obs_hotkey_enable_callback_rerouting(true);
+    for (int mode = 0; mode < 5; ++mode) {
+        qa = {};
+        MainWindow main;
+        QTemporaryDir requests;
+        qa.main = &main; qa.requestPath = requests.filePath("launch-request.txt");
+        QFile request(qa.requestPath); assert(request.open(QIODevice::WriteOnly));
+        request.write(QByteArray::number(QCoreApplication::applicationPid()) + (mode == 4 ? "" : "\nexit-after-capture"));
+        request.close();
+        moduleEnabled = true;
+        {
+            QuickRecordController controller;
+            event(OBS_FRONTEND_EVENT_FINISHED_LOADING);
+            wait(650);
+            assert(qa.visible && !QFile::exists(qa.requestPath));
+            if (mode == 1) {
+                emit qa.overlay->selectionReady(); emit qa.overlay->confirmed(); wait(150);
+                assert(qa.recording); qa.recording = false;
+                event(OBS_FRONTEND_EVENT_RECORDING_STOPPED); // Auto Stop/OBS/manual stop share cleanup.
+            } else {
+                if (mode == 2) { main.show(); main.hide(); }
+                if (mode == 3) { qa.otherOutput = true; event(OBS_FRONTEND_EVENT_STREAMING_STARTING); qa.otherOutput = false; }
+                emit qa.overlay->canceled();
+            }
+            idle(); wait(650);
+            assert(main.closes == (mode <= 1 ? 1 : 0));
+        }
+        moduleEnabled = false;
+    }
     scenario(StartMode::Confirm, [] {
         emit qa.overlay->confirmed(); // Enter without a selection cannot start.
         assert(qa.prepares == 0);

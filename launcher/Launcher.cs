@@ -222,7 +222,7 @@ try {
             ReleaseKey();
             Directory.CreateDirectory(config);
             using (Process process = Process.Start(new ProcessStartInfo(ObsPath, "--minimize-to-tray") { WorkingDirectory = Path.GetDirectoryName(ObsPath), UseShellExecute = false }))
-                File.WriteAllText(RequestPath, process.Id.ToString());
+                File.WriteAllText(RequestPath, process.Id.ToString() + "\nexit-after-capture");
             pendingUntil = DateTime.UtcNow.AddSeconds(60);
             Log("OBS launched; selector requested");
         }

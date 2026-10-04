@@ -8,6 +8,7 @@
 #include "quick-record-overlay.hpp"
 #include "recording-indicator.hpp"
 #include <QPointer>
+#include "launcher-session.hpp"
 class QAction;
 class SettingsWindow;
 
@@ -28,6 +29,7 @@ private:
     bool pending = false;
     bool shuttingDown = false;
     bool frontendRegistered = false;
+    LauncherSession launcherSession;
     Settings settings;
     CaptureController capture;
     HotkeyManager hotkey;

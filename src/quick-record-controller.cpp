@@ -4,9 +4,17 @@
 #include <QMessageBox>
 #include <windows.h>
 #include <QCoreApplication>
+#include <QApplication>
 #include <util/bmem.h>
 #include "launcher-request.hpp"
-QuickRecordController::QuickRecordController() : hotkey(this, [this] { toggle(); })
+QuickRecordController::QuickRecordController() : launcherSession([this] {
+    if (shuttingDown || state != QuickRecordState::Idle || pending || externalRecording ||
+        obs_frontend_recording_active() || obs_frontend_streaming_active() ||
+        obs_frontend_replay_buffer_active() || obs_frontend_virtualcam_active()) return true;
+    for (auto *widget : QApplication::topLevelWidgets())
+        if (widget->isVisible()) return true; // Settings, errors and OBS prompts must remain usable.
+    return false;
+}), hotkey(this, [this] { toggle(); })
 {
     hotkey.load(settings.data);
     hotkey.save(settings.data);
@@ -14,13 +22,14 @@ QuickRecordController::QuickRecordController() : hotkey(this, [this] { toggle();
     connect(&launcherTimer, &QTimer::timeout, this, [this] {
         if (shuttingDown) return;
         if (!obs_current_module()) return;
-        if (settings.foregroundSafety && GetAncestor(GetForegroundWindow(), GA_ROOTOWNER) == obs_frontend_get_main_window_handle()) return;
         char *path = obs_module_config_path("launch-request.txt");
         if (!path) return;
         const QString requestPath = QString::fromUtf8(path);
         bfree(path);
-        if (consumeLauncherRequest(requestPath, QCoreApplication::applicationPid())) {
+        bool autoExit = false;
+        if (consumeLauncherRequest(requestPath, QCoreApplication::applicationPid(), &autoExit)) {
             blog(LOG_INFO, "OBS Quick Record: launcher request received");
+            if (autoExit) launcherSession.claim(static_cast<QWidget *>(obs_frontend_get_main_window()));
             if (state == QuickRecordState::Idle && !pending) toggle();
         }
     });
@@ -67,6 +76,7 @@ QuickRecordController::QuickRecordController() : hotkey(this, [this] { toggle();
 QuickRecordController::~QuickRecordController()
 {
     shuttingDown = true;
+    launcherSession.retain();
     launcherTimer.stop();
     if (frontendRegistered) obs_frontend_remove_event_callback(frontendEvent, this);
     hotkey.save(settings.data);
@@ -88,6 +98,7 @@ void QuickRecordController::onEvent(obs_frontend_event event)
         CaptureController::removeStaleScene();
         launcherTimer.start(500);
     } else if (event == OBS_FRONTEND_EVENT_RECORDING_STARTING && !requested) {
+        launcherSession.retain();
         externalRecording = true;
         if (state != QuickRecordState::Idle || pending) finish();
     } else if (event == OBS_FRONTEND_EVENT_RECORDING_STARTED && pending && requested) {
@@ -116,6 +127,7 @@ void QuickRecordController::onEvent(obs_frontend_event event)
         blog(LOG_INFO, "OBS Quick Record: recording stopped");
         finish();
     } else if (event == OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN || event == OBS_FRONTEND_EVENT_EXIT) {
+        launcherSession.retain();
         shuttingDown = true;
         launcherTimer.stop();
         // OBS dispatches callbacks in reverse order, so removing this callback here is safe.
@@ -127,6 +139,8 @@ void QuickRecordController::onEvent(obs_frontend_event event)
         settings.save();
         delete settingsWindow;
         finish();
+    } else if (event == OBS_FRONTEND_EVENT_STREAMING_STARTING || event == OBS_FRONTEND_EVENT_REPLAY_BUFFER_STARTING || event == OBS_FRONTEND_EVENT_VIRTUALCAM_STARTED) {
+        launcherSession.retain();
     } else if (event == OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGING) {
         if (state == QuickRecordState::Recording) capture.stop();
         else finish();
@@ -155,6 +169,7 @@ void QuickRecordController::toggle()
     if (state != QuickRecordState::Idle) return;
     if (settingsWindow && settingsWindow->isVisible()) return;
     state = QuickRecordState::Selecting;
+    launcherSession.resume();
     overlay.open();
     if (state != QuickRecordState::Selecting) { notify("NoMonitor"); return; }
     blog(LOG_INFO, "OBS Quick Record: selector opened");
@@ -196,4 +211,5 @@ void QuickRecordController::finish()
     requested = false;
     pending = false;
     state = QuickRecordState::Idle;
+    if (!shuttingDown) launcherSession.complete();
 }
