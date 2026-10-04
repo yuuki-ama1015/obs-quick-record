@@ -39,6 +39,10 @@ sealed class Launcher : ApplicationContext
     }
     string registered = "", lastError = "";
     bool ownsKey;
+    readonly BindingCache bindingCache = new BindingCache();
+    static readonly int session = CurrentSession();
+    Process obsProcess;
+    DateTime nextProcessScan = DateTime.MinValue;
     DateTime pendingUntil = DateTime.MinValue;
     string ObsPath { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "obs-studio", "bin", "64bit", "obs64.exe"); } }
     string RequestPath { get { return Path.Combine(config, "launch-request.txt"); } }
@@ -137,14 +141,43 @@ try {
         catch (Exception exception) { Error(exception.Message); }
     }
 
-    static bool ObsRunning()
+    static int CurrentSession() { using (var process = Process.GetCurrentProcess()) return process.SessionId; }
+    bool ObsRunning(bool refresh = false)
     {
-        int session = Process.GetCurrentProcess().SessionId;
+        if (obsProcess != null)
+        {
+            try { if (!obsProcess.HasExited) return true; }
+            catch (InvalidOperationException) {} catch (System.ComponentModel.Win32Exception) {}
+            obsProcess.Dispose(); obsProcess = null; nextProcessScan = DateTime.MinValue;
+        }
+        if (!refresh && DateTime.UtcNow < nextProcessScan) return false;
+        nextProcessScan = DateTime.UtcNow.AddSeconds(1);
         foreach (Process process in Process.GetProcessesByName("obs64"))
         {
-            using (process) { try { if (process.SessionId == session) return true; } catch (InvalidOperationException) {} }
+            try { if (obsProcess == null && process.SessionId == session && !process.HasExited) { obsProcess = process; continue; } }
+            catch (InvalidOperationException) {}
+            catch (System.ComponentModel.Win32Exception) {}
+            process.Dispose();
         }
-        return false;
+        return obsProcess != null;
+    }
+    sealed class BindingCache
+    {
+        DateTime modified;
+        long length = -2;
+        uint[] value;
+        public uint[] Read(string path)
+        {
+            var file = new FileInfo(path);
+            long size = file.Exists ? file.Length : -1;
+            DateTime stamp = file.Exists ? file.LastWriteTimeUtc : DateTime.MinValue;
+            if (value != null && size == length && stamp == modified) return value;
+            var parsed = Binding(file.Exists ? File.ReadAllText(path) : null);
+            if (parsed[0] > 15 || parsed[1] > 255) throw new InvalidDataException("Invalid launcher shortcut.");
+            // Commit only after a successful read; atomic replacement/transient failure retries next tick.
+            value = parsed; length = size; modified = stamp;
+            return value;
+        }
     }
     static uint ReadNumber(Dictionary<string, object> data, string name)
     {
@@ -201,8 +234,7 @@ try {
             }
             if (ObsRunning()) { ReleaseKey(); return; }
             string file = Path.Combine(config, "settings.json");
-            uint[] binding = Binding(File.Exists(file) ? File.ReadAllText(file) : null);
-            if (binding[0] > 15 || binding[1] > 255) throw new InvalidDataException("Invalid launcher shortcut.");
+            uint[] binding = bindingCache.Read(file);
             string identity = binding[0] + ":" + binding[1];
             if (identity == registered) return;
             ReleaseKey();
@@ -215,14 +247,15 @@ try {
     }
     void Launch()
     {
-        if (ObsRunning() || pendingUntil != DateTime.MinValue) return;
+        if (ObsRunning(true)) { ReleaseKey(); return; }
+        if (pendingUntil != DateTime.MinValue) return;
         try
         {
             if (!File.Exists(ObsPath)) throw new FileNotFoundException("OBS is not installed at " + ObsPath);
             ReleaseKey();
             Directory.CreateDirectory(config);
-            using (Process process = Process.Start(new ProcessStartInfo(ObsPath, "--minimize-to-tray") { WorkingDirectory = Path.GetDirectoryName(ObsPath), UseShellExecute = false }))
-                File.WriteAllText(RequestPath, process.Id.ToString() + "\nexit-after-capture");
+            obsProcess = Process.Start(new ProcessStartInfo(ObsPath, "--minimize-to-tray") { WorkingDirectory = Path.GetDirectoryName(ObsPath), UseShellExecute = false });
+            File.WriteAllText(RequestPath, obsProcess.Id.ToString() + "\nexit-after-capture");
             pendingUntil = DateTime.UtcNow.AddSeconds(60);
             Log("OBS launched; selector requested");
         }
@@ -253,6 +286,17 @@ try {
         try
         {
             Directory.CreateDirectory(folder);
+            string settingsPath = Path.Combine(root, "settings.json");
+            var cache = new BindingCache();
+            var before = cache.Read(settingsPath);
+            if (!Object.ReferenceEquals(before, cache.Read(settingsPath))) throw new InvalidDataException("Unchanged settings were parsed again");
+            File.WriteAllText(settingsPath, "{\"launcherVirtualKey\":121,\"launcherModifiers\":6}");
+            if (cache.Read(settingsPath)[1] != 121) throw new InvalidDataException("Changed settings not loaded");
+            File.WriteAllText(settingsPath, "invalid");
+            try { cache.Read(settingsPath); throw new InvalidDataException("Invalid settings accepted"); }
+            catch (ArgumentException) {}
+            File.Delete(settingsPath);
+            if (cache.Read(settingsPath)[1] != 82) throw new InvalidDataException("Deleted settings not reset");
             File.Copy(ExecutablePath, exe);
             File.WriteAllText(Path.Combine(folder, "keep.txt"), "unrelated file");
             if (!SafeInstalledPath(exe, root) || SafeInstalledPath(exe, Path.Combine(root, "outside")) || SafeInstalledPath(ExecutablePath, root)) throw new InvalidDataException("Path safety check failed");
@@ -284,6 +328,7 @@ try {
     protected override void ExitThreadCore()
     {
         timer.Stop(); ReleaseKey(); window.DestroyHandle(); icon.Visible = false; icon.Dispose(); trayIcon.Dispose(); timer.Dispose();
+        if (obsProcess != null) obsProcess.Dispose();
         base.ExitThreadCore();
     }
     [STAThread] static int Main(string[] args)

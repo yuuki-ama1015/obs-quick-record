@@ -4,16 +4,23 @@
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QWidget>
+#include <QEventLoop>
 #include <cassert>
 #include <iostream>
 
 extern "C" const char *obs_module_text(const char *key) { return key; }
+class PaintCounter : public QObject {
+public:
+    int count = 0;
+    bool eventFilter(QObject *, QEvent *event) override { if (event->type() == QEvent::Paint) ++count; return false; }
+};
 
 // Exercises real overlay event routing on Qt's minimal platform. No OS key/mouse
 // injection or visible desktop overlay; this does not test Windows focus delivery.
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
+    app.setQuitOnLastWindowClosed(false);
     QuickRecordOverlay overlay;
     int confirmed = 0, canceled = 0, ready = 0, reset = 0, settings = 0;
     QObject::connect(&overlay, &QuickRecordOverlay::confirmed, [&] { ++confirmed; });
@@ -26,6 +33,13 @@ int main(int argc, char **argv)
     for (auto *widget : QApplication::topLevelWidgets())
         if (widget->isVisible() && widget->windowTitle().startsWith("Title")) surface = widget;
     assert(surface);
+    PaintCounter paints;
+    surface->installEventFilter(&paints);
+    auto wait = [] { QEventLoop loop; QTimer::singleShot(200, &loop, &QEventLoop::quit); loop.exec(); };
+    wait();
+    const auto initialPaints = paints.count;
+    wait();
+    assert(paints.count == initialPaints); // Region idle does not repaint at 60 Hz.
     auto key = [](QWidget *receiver, int value, bool repeat = false) {
         QKeyEvent event(QEvent::KeyPress, value, Qt::NoModifier, {}, repeat);
         QApplication::sendEvent(receiver, &event);
@@ -69,6 +83,9 @@ int main(int argc, char **argv)
     assert(canceled == 1 && !surface->isVisible());
     key(surface, Qt::Key_Return);
     assert(confirmed == 2); // Hidden surfaces never accept Enter.
+    QPointer<QWidget> closed = surface;
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    assert(closed.isNull()); // Hidden full-desktop surfaces release their backing storage.
     overlay.open();
     surface = nullptr;
     for (auto *widget : QApplication::topLevelWidgets())

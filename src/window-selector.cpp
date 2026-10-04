@@ -14,18 +14,27 @@ bool eligible(HWND window)
     if (SUCCEEDED(DwmGetWindowAttribute(window, DWMWA_CLOAKED, &cloaked, sizeof(cloaked))) && cloaked) return false;
     return GetWindowTextLengthW(window) > 0;
 }
-CaptureTarget describe(HWND window, const std::vector<MonitorInfo> &monitors)
+CaptureTarget describe(HWND window, const std::vector<MonitorInfo> &monitors, bool cache = false)
 {
     CaptureTarget target;
     if (!eligible(window)) return target;
     wchar_t title[4096]{}, className[256]{}, path[32768]{};
     DWORD pid = 0, length = static_cast<DWORD>(std::size(path));
     GetWindowThreadProcessId(window, &pid);
-    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
-    if (!process) return target;
-    const bool found = QueryFullProcessImageNameW(process, 0, path, &length);
-    CloseHandle(process);
-    if (!found) return target;
+    static HWND cachedWindow = nullptr;
+    static DWORD cachedPid = 0;
+    static QString cachedExe;
+    QString exe;
+    if (cache && window == cachedWindow && pid == cachedPid) exe = cachedExe;
+    else {
+        HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+        if (!process) return target;
+        const bool found = QueryFullProcessImageNameW(process, 0, path, &length);
+        CloseHandle(process);
+        if (!found) return target;
+        exe = QString::fromWCharArray(path).section('\\', -1);
+        if (cache) { cachedWindow = window; cachedPid = pid; cachedExe = exe; }
+    }
     GetWindowTextW(window, title, static_cast<int>(std::size(title)));
     GetClassNameW(window, className, static_cast<int>(std::size(className)));
     RECT rect{};
@@ -35,7 +44,7 @@ CaptureTarget describe(HWND window, const std::vector<MonitorInfo> &monitors)
     for (const auto &monitor : monitors) if (monitor.physical.intersects(target.physical)) { target.monitor = monitor; break; }
     target.kind = CaptureKind::Window;
     target.title = QString::fromWCharArray(title);
-    target.windowValue = WindowSelector::encode(target.title, QString::fromWCharArray(className), QString::fromWCharArray(path).section('\\', -1));
+    target.windowValue = WindowSelector::encode(target.title, QString::fromWCharArray(className), exe);
     target.windowHandle = reinterpret_cast<quintptr>(window);
     target.processId = pid;
     return target;
@@ -57,7 +66,7 @@ CaptureTarget WindowSelector::at(QPoint point, const std::vector<MonitorInfo> &m
             if (!GetWindowRect(window, &rect)) return TRUE;
         POINT point{search.point.x(), search.point.y()};
         if (!PtInRect(&rect, point)) return TRUE;
-        search.result = describe(window, search.monitors);
+        search.result = describe(window, search.monitors, true);
         return !search.result.valid();
     }, reinterpret_cast<LPARAM>(&search));
     return search.result;

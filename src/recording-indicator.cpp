@@ -25,6 +25,6 @@ void RecordingIndicator::start(const MonitorInfo &monitor)
     show();
     if (!SetWindowDisplayAffinity(reinterpret_cast<HWND>(winId()), WDA_EXCLUDEFROMCAPTURE))
         blog(LOG_WARNING, "OBS Quick Record: recording indicator capture exclusion unavailable; disable indicator if visible in recordings");
-    timer.start(250);
+    timer.start(1000);
 }
 void RecordingIndicator::stop() { timer.stop(); hide(); }
