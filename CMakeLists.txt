@@ -44,6 +44,7 @@ add_custom_target(quick-record-launcher ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}
 install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/obs-quick-record-launcher.exe" DESTINATION obs-quick-record/bin/64bit)
 install(FILES launcher/install.ps1 DESTINATION obs-quick-record RENAME "OBS起動アシストのみをインストール.ps1")
 install(FILES launcher/setup.ps1 DESTINATION obs-quick-record RENAME "OBS Quick RecordとOBS起動アシストをまとめてインストール.ps1")
+install(FILES launcher/setup.cmd DESTINATION obs-quick-record RENAME "OBS Quick RecordとOBS起動アシストをまとめてインストール.cmd")
 include(CTest)
 if(BUILD_TESTING)
   add_test(NAME installer-check COMMAND "${POWERSHELL_EXECUTABLE}" -NoProfile -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/installer-check.ps1")

@@ -1,5 +1,6 @@
-param([switch]$StartWithWindows)
+﻿param([switch]$StartWithWindows, [switch]$NoPause)
 $ErrorActionPreference = 'Stop'
+try {
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 try { $admin = ([Security.Principal.WindowsPrincipal]::new($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) }
 finally { $identity.Dispose() }
@@ -19,3 +20,12 @@ if ($StartWithWindows) {
     $shortcut.Save()
 }
 Start-Process -FilePath $exe -WindowStyle Hidden
+
+Write-Host 'OBS startup assistant is installed.'
+} catch {
+    if ($NoPause) { throw }
+    Write-Host ('Installation failed: ' + $_.Exception.Message) -ForegroundColor Red
+    Read-Host 'Press Enter to close' | Out-Null
+    exit 1
+}
+if (!$NoPause) { Read-Host 'Press Enter to close' | Out-Null }

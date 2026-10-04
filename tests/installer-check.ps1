@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 $source = Join-Path $PSScriptRoot '../launcher/setup.ps1'
 $tokens = $null; $errors = $null
 $ast = [Management.Automation.Language.Parser]::ParseFile($source, [ref]$tokens, [ref]$errors)
@@ -9,6 +9,32 @@ if ($copy.Extent.Text -match 'LOCALAPPDATA|Startup|Start-Process') { throw 'Elev
 $root = Join-Path ([IO.Path]::GetTempPath()) ('obs-quick-record-installer-check-' + [guid]::NewGuid())
 $oldProgramData = $env:ProgramData
 try {
+    # Exercise the packaged entry point under Restricted policy without installing anything.
+    $entryPackage = Join-Path $root 'entry 日本語'
+    New-Item -ItemType Directory -Path $entryPackage -Force | Out-Null
+    Copy-Item -LiteralPath $source -Destination (Join-Path $entryPackage 'OBS Quick RecordとOBS起動アシストをまとめてインストール.ps1')
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../launcher/setup.cmd') -Destination (Join-Path $entryPackage 'setup.cmd')
+    $info = New-Object Diagnostics.ProcessStartInfo
+    $info.FileName = $env:ComSpec
+    $info.Arguments = '/c setup.cmd'
+    $info.WorkingDirectory = $entryPackage
+    $info.UseShellExecute = $false
+    $info.RedirectStandardInput = $true
+    $info.RedirectStandardOutput = $true
+    $info.RedirectStandardError = $true
+    $info.EnvironmentVariables['PSExecutionPolicyPreference'] = 'Restricted'
+    $process = [Diagnostics.Process]::Start($info)
+    try {
+        $process.StandardInput.WriteLine('')
+        $process.StandardInput.Close()
+        $outputTask = $process.StandardOutput.ReadToEndAsync()
+        $errorTask = $process.StandardError.ReadToEndAsync()
+        if (!$process.WaitForExit(30000)) { $process.Kill(); throw 'Installer entry timed out' }
+        $output = $outputTask.Result + $errorTask.Result
+        if ($process.ExitCode -ne 1 -or $output -notmatch 'Installation failed: Extract the complete') {
+            throw ('Entry must bypass process policy and report missing package: ' + $output)
+        }
+    } finally { $process.Dispose() }
     $package = Join-Path $root 'package'
     $env:ProgramData = Join-Path $root 'machine'
     New-Item -ItemType Directory -Path (Join-Path $package 'bin/64bit'), (Join-Path $package 'data/locale') -Force | Out-Null

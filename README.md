@@ -1,4 +1,4 @@
-# OBS Quick Record
+﻿# OBS Quick Record
 
 OBSを起動・最小化したまま、範囲・ウィンドウ・モニターを選択して標準のOBS録画を開始するWindows用プラグインです。`obs-auto-stop`とは独立しており、録画開始・停止の連携にはOBS標準の録画イベントだけを使用します。
 
@@ -29,7 +29,7 @@ QtやOBSのDLLをプラグインフォルダーへ追加する必要はありま
 
 ### プラグインとOBS起動アシストをまとめて導入
 
-ZIPを展開し、PowerShellで展開先へ移動して次を実行します。
+ZIPを展開し、「OBS Quick RecordとOBS起動アシストをまとめてインストール.cmd」をダブルクリックします。成功・失敗の表示はキーを押すまで残ります。Windows全体の実行ポリシーは変更しません。`.ps1` は右クリック実行だと実行ポリシーにより開始前に止まる場合があるため、同封の `.cmd` を推奨します。PowerShellから直接実行する場合は次を使います。
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\"OBS Quick RecordとOBS起動アシストをまとめてインストール.ps1"

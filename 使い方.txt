@@ -29,18 +29,18 @@ OBS起動アシストは、OBSが終了していてもショートカットキ�
    ZIPの中から直接実行せず、展開したファイルを使ってください。
 ③ 展開先の「obs-quick-record」フォルダーを開きます。
    OBS Quick RecordとOBS起動アシストをまとめてインストール.ps1、使い方.txt、bin、dataが並んでいる場所です。
-④ エクスプローラー上部のアドレス欄に powershell と入力してEnterを押します。
-   そのフォルダーを作業場所にしたPowerShellが開きます。
-⑤ 次の1行をコピーしてPowerShellへ貼り付け、Enterを押します。
+④ 「OBS Quick RecordとOBS起動アシストをまとめてインストール.cmd」をダブルクリックします。
+   .cmdは同封の.ps1を起動するためのファイルです。コマンドを入力する必要はありません。
+⑤ Windowsの管理者確認（UAC）が出たら「はい」を選びます。
+⑥ 「Quick Record and OBS startup assistant are installed.」が表示されたら導入完了です。
+   キーを押すと画面を閉じます。失敗した場合も画面が残るので、表示内容を確認できます。
 
-   powershell -ExecutionPolicy Bypass -File .\"OBS Quick RecordとOBS起動アシストをまとめてインストール.ps1"
+.ps1を直接使う場合は、フォルダーのアドレス欄に powershell と入力してEnterを押し、
+次を貼り付けて実行してください。右クリック実行はWindowsの実行制限で止まる場合があります。
 
-⑥ ユーザーアカウント制御（UAC）の確認画面で「はい」を選びます。
-   この配布ZIP内のスクリプトを実行するときだけの指定です。
-   Windows全体のPowerShell実行ポリシーを変更する必要はありません。
-⑦ 「Quick Record and OBS startup assistant are installed.」が表示されたら導入完了です。
-   開いたPowerShellのウィンドウは閉じて構いません。
+   powershell -NoProfile -ExecutionPolicy Bypass -File ".\OBS Quick RecordとOBS起動アシストをまとめてインストール.ps1"
 
+実行制限の指定はこの処理だけに適用されます。PC全体の設定は変更しません。
 PowerShellは「管理者として実行」で開かないでください。
 UACで許可するのはOBSプラグインのコピーだけです。
 OBS起動アシストと、そこから起動するOBSは通常のユーザー権限で動きます。
@@ -51,7 +51,7 @@ UACを取り消した場合やコピーに失敗した場合は、OBS起動ア�
 ・OBS起動アシストをユーザーのLocalAppData\OBSQuickRecordLauncherに配置して起動
 ・Windowsサインイン時にOBS起動アシストが起動するよう登録
 
-Windowsサインイン時の自動起動を登録したくない場合は、⑤を次に変えます。
+Windowsサインイン時の自動起動を登録したくない場合は、PowerShellから次を実行します。
 
    powershell -ExecutionPolicy Bypass -File .\"OBS Quick RecordとOBS起動アシストをまとめてインストール.ps1" -NoStartup
 

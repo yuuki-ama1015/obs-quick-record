@@ -1,5 +1,7 @@
-﻿param([switch]$NoStartup, [switch]$PluginOnly)
+﻿param([switch]$NoStartup, [switch]$PluginOnly, [switch]$NoPause)
 $ErrorActionPreference = 'Stop'
+$exitCode = 0
+try {
 
 $pluginSource = Join-Path $PSScriptRoot 'bin/64bit/obs-quick-record.dll'
 $launcherSource = Join-Path $PSScriptRoot 'bin/64bit/obs-quick-record-launcher.exe'
@@ -40,6 +42,14 @@ $powershell = Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.
 $child = Start-Process -FilePath $powershell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -PluginOnly" -WindowStyle Hidden -PassThru -Wait
 if ($child.ExitCode -ne 0) { throw 'Quick Record plugin installation failed. OBS startup assistant was not installed or started.' }
 # Continue in the original user's unelevated process, even with alternate UAC credentials.
-& (Join-Path $PSScriptRoot 'OBS起動アシストのみをインストール.ps1') -StartWithWindows:(!$NoStartup)
+& (Join-Path $PSScriptRoot 'OBS起動アシストのみをインストール.ps1') -StartWithWindows:(!$NoStartup) -NoPause
 Write-Host 'Quick Record and OBS startup assistant are installed. OBS will load the plugin the next time it starts.'
 if (!$NoStartup) { Write-Host 'OBS startup assistant will also start automatically when you sign in to Windows.' }
+
+} catch {
+    $exitCode = 1
+    Write-Host ('Installation failed: ' + $_.Exception.Message) -ForegroundColor Red
+} finally {
+    if (!$PluginOnly -and !$NoPause) { Read-Host 'Press Enter to close' | Out-Null }
+}
+exit $exitCode
