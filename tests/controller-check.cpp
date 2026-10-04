@@ -12,7 +12,10 @@
 #include <QTemporaryDir>
 #include <QFile>
 #include <QCloseEvent>
+#include <QMessageBox>
+#include <QThread>
 static bool moduleEnabled = false;
+static obs_output_t *testOutput = nullptr;
 extern "C" obs_module_t *obs_current_module() { return moduleEnabled ? reinterpret_cast<obs_module_t *>(1) : nullptr; }
 
 // Run the production controller, hotkey manager and settings dialog with real Qt
@@ -27,6 +30,9 @@ static struct {
     bool prepareOK = true, ready = true, startOK = true, emitStarted = true;
     bool targetLost = false;
     bool otherOutput = false, replay = false, virtualCamera = false;
+    bool outputMissing = false;
+    bool stopInsideSignal = false;
+    int configReads = 0;
     int opens = 0, prepares = 0, starts = 0, stops = 0, cleanups = 0, staleCleanups = 0;
     QWidget *main = nullptr;
     QString requestPath;
@@ -44,6 +50,21 @@ static void event(obs_frontend_event value)
 {
     assert(qa.callback);
     qa.callback(value, qa.callbackData);
+    if (value == OBS_FRONTEND_EVENT_RECORDING_STOPPED && QThread::currentThread() == qApp->thread()) QCoreApplication::processEvents();
+}
+static void stopped(int code = OBS_OUTPUT_SUCCESS)
+{
+    auto signal = [code] {
+        calldata_t params{};
+        calldata_set_int(&params, "code", code);
+        calldata_set_string(&params, "last_error", code ? "test recording failure" : "");
+        signal_handler_signal(obs_output_get_signal_handler(testOutput), "stop", &params);
+        calldata_free(&params);
+    };
+    if (qa.stopInsideSignal) { signal(); QCoreApplication::processEvents(); return; }
+    std::thread(signal).join();
+    qa.recording = false;
+    event(OBS_FRONTEND_EVENT_RECORDING_STOPPED);
 }
 static void wait(int milliseconds)
 {
@@ -92,7 +113,8 @@ const char *obs_module_text(const char *key) { return std::strcmp(key, "Counting
 void *obs_frontend_add_tools_menu_qaction(const char *) { return new QAction; }
 void *obs_frontend_get_main_window_handle() { return nullptr; }
 void *obs_frontend_get_main_window() { return qa.main; }
-char *obs_module_get_config_path(obs_module_t *, const char *) { return bstrdup(qa.requestPath.toUtf8().constData()); }
+char *obs_module_get_config_path(obs_module_t *, const char *) { ++qa.configReads; return bstrdup(qa.requestPath.toUtf8().constData()); }
+obs_output_t *obs_frontend_get_recording_output() { return qa.outputMissing ? nullptr : obs_output_get_ref(testOutput); }
 void obs_frontend_add_event_callback(obs_frontend_event_cb callback, void *data)
 { assert(!qa.callback); qa.callback = callback; qa.callbackData = data; }
 void obs_frontend_remove_event_callback(obs_frontend_event_cb callback, void *data)
@@ -138,7 +160,7 @@ bool CaptureController::start()
     return qa.startOK;
 }
 void CaptureController::stop()
-{ ++qa.stops; qa.recording = false; event(OBS_FRONTEND_EVENT_RECORDING_STOPPED); }
+{ ++qa.stops; stopped(); }
 void CaptureController::cleanup(bool) { ++qa.cleanups; qa.allocated = false; }
 
 int main(int argc, char **argv)
@@ -146,9 +168,27 @@ int main(int argc, char **argv)
     QApplication app(argc, argv);
     app.setQuitOnLastWindowClosed(false);
     assert(obs_startup("en-US", nullptr, nullptr));
+    obs_output_info outputInfo{};
+    outputInfo.id = "qa-output";
+    outputInfo.flags = OBS_OUTPUT_ENCODED; // No video subsystem in this isolated controller test.
+    outputInfo.encoded_packet = [](void *, encoder_packet *) {};
+    outputInfo.get_name = [](void *) { return "test recording"; };
+    outputInfo.create = [](obs_data_t *, obs_output_t *output) -> void * { return output; };
+    outputInfo.destroy = [](void *) {};
+    outputInfo.start = [](void *) { return true; };
+    outputInfo.stop = [](void *, uint64_t) {};
+    obs_register_output(&outputInfo);
+    testOutput = obs_output_create("qa-output", "qa recording output", nullptr, nullptr);
+    assert(testOutput);
+    signal_handler_connect(obs_output_get_signal_handler(testOutput), "stop", [](void *, calldata_t *) {
+        if (qa.stopInsideSignal) {
+            qa.recording = false;
+            qa.callback(OBS_FRONTEND_EVENT_RECORDING_STOPPED, qa.callbackData);
+        }
+    }, nullptr); // Simulate OBS's earlier stop subscriber, before our result observer.
     // Ignore physical hotkeys; only explicit routed callbacks drive these checks.
     obs_hotkey_enable_callback_rerouting(true);
-    for (int mode = 0; mode < 5; ++mode) {
+    for (int mode = 0; mode < 8; ++mode) {
         qa = {};
         MainWindow main;
         QTemporaryDir requests;
@@ -160,19 +200,32 @@ int main(int argc, char **argv)
         {
             QuickRecordController controller;
             event(OBS_FRONTEND_EVENT_FINISHED_LOADING);
+            if (mode == 6) toggle(); // User selected before the launcher request timer fired.
             wait(650);
             assert(qa.visible && !QFile::exists(qa.requestPath));
-            if (mode == 1) {
+            assert(request.open(QIODevice::WriteOnly)); request.write("invalid"); request.close();
+            if (mode == 1 || mode == 5 || mode == 7) {
+                qa.outputMissing = mode == 7;
                 emit qa.overlay->selectionReady(); emit qa.overlay->confirmed(); wait(150);
-                assert(qa.recording); qa.recording = false;
-                event(OBS_FRONTEND_EVENT_RECORDING_STOPPED); // Auto Stop/OBS/manual stop share cleanup.
+                assert(qa.recording);
+                stopped(mode == 5 ? OBS_OUTPUT_NO_SPACE : OBS_OUTPUT_SUCCESS);
+                if (mode != 1) {
+                    bool notified = false;
+                    for (auto *widget : QApplication::topLevelWidgets()) {
+                        auto *box = qobject_cast<QMessageBox *>(widget);
+                        if (box && box->text() == "RecordingFailed") { notified = true; box->close(); }
+                    }
+                    assert(notified); // Even a tray-only OBS error must retain the process after the notification closes.
+                }
             } else {
                 if (mode == 2) { main.show(); main.hide(); }
                 if (mode == 3) { qa.otherOutput = true; event(OBS_FRONTEND_EVENT_STREAMING_STARTING); qa.otherOutput = false; }
                 emit qa.overlay->canceled();
             }
             idle(); wait(650);
-            assert(main.closes == (mode <= 1 ? 1 : 0));
+            assert(main.closes == (mode <= 1 || mode == 6 ? 1 : 0));
+            assert(qa.configReads == 1); // Request path is computed once, watcher stops after consumption.
+            assert(QFile::exists(qa.requestPath)); // Later requests are not polled by an already-running OBS.
         }
         moduleEnabled = false;
     }
@@ -208,8 +261,7 @@ int main(int argc, char **argv)
         emit qa.overlay->selectionReady();
         wait(3500);
         assert(qa.starts == 1 && qa.recording);
-        qa.recording = false;
-        event(OBS_FRONTEND_EVENT_RECORDING_STOPPED); // OBS/another plugin stops it.
+        stopped(); // OBS/another plugin stops it.
         idle();
     });
     scenario(StartMode::Immediate, [] {
@@ -229,6 +281,16 @@ int main(int argc, char **argv)
         qa.prepareOK = true;
         toggle();
         assert(qa.opens == 2);
+    });
+    scenario(StartMode::Immediate, [] {
+        qa.stopInsideSignal = true;
+        emit qa.overlay->selectionReady(); wait(150);
+        stopped();
+        idle();
+        for (auto *widget : QApplication::topLevelWidgets()) {
+            auto *box = qobject_cast<QMessageBox *>(widget);
+            assert(!box || box->text() != "RecordingFailed");
+        }
     });
     scenario(StartMode::Immediate, [] {
         qa.startOK = false;
@@ -333,6 +395,7 @@ int main(int argc, char **argv)
         assert(qa.opens == 1 && !qa.callback);
         idle();
     });
+    obs_output_release(testOutput);
     obs_shutdown();
     std::cout << "confirm/countdown/immediate, cancellation, failure, external stop and shutdown passed\n";
 }

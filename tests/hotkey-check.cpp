@@ -7,6 +7,9 @@
 #include <QPushButton>
 #include <QMainWindow>
 #include <QDockWidget>
+#include <QMessageBox>
+#include <QTimer>
+#include <QComboBox>
 #include <cassert>
 #include <iostream>
 
@@ -14,6 +17,8 @@
 extern "C" const char *obs_module_text(const char *key) { return key; }
 Settings::Settings() : data(obs_data_create()) {}
 Settings::~Settings() { obs_data_release(data); }
+static bool saveOK = true;
+bool Settings::save() { return saveOK; }
 
 static void expect(HotkeyManager &hotkey, uint32_t modifiers, obs_key_t key)
 {
@@ -74,6 +79,28 @@ int main(int argc, char **argv)
         expect(hotkey, INTERACT_ALT_KEY, OBS_KEY_R);
         edit(QDialogButtonBox::Save);
         expect(hotkey, INTERACT_CONTROL_KEY | INTERACT_SHIFT_KEY, OBS_KEY_R);
+        {
+            SettingsWindow dialog(settings, hotkey);
+            dialog.show();
+            dialog.findChild<QComboBox *>()->setCurrentIndex(2);
+            QKeyEvent key(QEvent::KeyPress, Qt::Key_O, Qt::AltModifier, 0, 0x4F, 0);
+            QApplication::sendEvent(dialog.findChild<QLineEdit *>(), &key);
+            saveOK = false;
+            bool errorShown = false;
+            QTimer::singleShot(0, &dialog, [&] {
+                auto *error = dialog.findChild<QMessageBox *>();
+                assert(error && error->text() == "SettingsSaveFailed");
+                errorShown = true; error->accept();
+            });
+            dialog.findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save)->click();
+            assert(errorShown && dialog.isVisible() && settings.startMode == StartMode::Confirm);
+            expect(hotkey, INTERACT_CONTROL_KEY | INTERACT_SHIFT_KEY, OBS_KEY_R);
+            saveOK = true;
+            dialog.findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save)->click();
+            assert(dialog.result() == QDialog::Accepted && settings.startMode == StartMode::Countdown);
+            expect(hotkey, INTERACT_ALT_KEY, OBS_KEY_O);
+            hotkey.setPrimaryBinding({INTERACT_CONTROL_KEY | INTERACT_SHIFT_KEY, OBS_KEY_R});
+        }
 
         hotkey.save(settings.data);
         Settings restored;

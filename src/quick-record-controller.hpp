@@ -8,6 +8,8 @@
 #include "quick-record-overlay.hpp"
 #include "recording-indicator.hpp"
 #include <QPointer>
+#include <QElapsedTimer>
+#include <atomic>
 #include "launcher-session.hpp"
 class QAction;
 class SettingsWindow;
@@ -25,6 +27,11 @@ private:
     void begin();
     void showSettings();
     void notify(const char *key);
+    static void recordingStopped(void *, calldata_t *);
+    void watchRecording();
+    void unwatchRecording();
+    obs_output_t *recordingOutput = nullptr;
+    std::atomic<int> recordingResult{OBS_OUTPUT_ERROR};
     QuickRecordState state = QuickRecordState::Idle;
     bool pending = false;
     bool shuttingDown = false;
@@ -37,6 +44,8 @@ private:
     QTimer countdown;
     QTimer prepareTimer;
     QTimer launcherTimer;
+    QElapsedTimer launcherWait;
+    QString launcherRequestPath;
     bool requested = false;
     bool externalRecording = false;
     RecordingIndicator indicator;

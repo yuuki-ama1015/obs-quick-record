@@ -22,7 +22,7 @@ public:
     ~LauncherSession() override { retain(); }
     void claim(QWidget *main)
     {
-        if (!main || main->isVisible() || busy()) return;
+        if (!main || main->isVisible()) return;
         window = main;
         main->installEventFilter(this);
     }

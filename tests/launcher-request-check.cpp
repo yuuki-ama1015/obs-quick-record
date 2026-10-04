@@ -56,4 +56,6 @@ int main(int argc, char **argv)
     session.claim(&main); main.show(); main.hide(); session.complete(); wait(); assert(main.closes == 1); // User opened OBS.
     main.show(); session.claim(&main); main.hide(); session.complete(); wait(); assert(main.closes == 1);
     session.claim(&main); session.complete(); session.retain(); wait(); assert(main.closes == 1); // Shutdown cancels queued close.
+    busy = true; session.claim(&main); session.complete(); wait(); assert(main.closes == 1);
+    busy = false; wait(); assert(main.closes == 2); // A startup/settings dialog delays initial ownership, never loses it.
 }

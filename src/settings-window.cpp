@@ -9,6 +9,8 @@
 #include <QDockWidget>
 #include <QPointer>
 #include <QPushButton>
+#include <QMessageBox>
+#include <tuple>
 #include <util/dstr.h>
 
 static QString bindingText(obs_key_combination_t binding)
@@ -108,6 +110,10 @@ SettingsWindow::SettingsWindow(Settings &settings, HotkeyManager &hotkey, QWidge
     layout->addWidget(buttons);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     connect(buttons, &QDialogButtonBox::accepted, this, [&, hotkeyEdit, mode, cursor, remember, safety, indicator, restore] {
+        hotkey.save(settings.data);
+        auto *previousData = obs_data_create_from_json(obs_data_get_json(settings.data));
+        const auto previous = std::make_tuple(settings.startMode, settings.cursor, settings.rememberRegion,
+                                              settings.foregroundSafety, settings.indicator, settings.restoreScene);
         hotkey.setPrimaryBinding(hotkeyEdit->value());
         settings.startMode = static_cast<StartMode>(mode->currentIndex());
         settings.cursor = cursor->isChecked();
@@ -115,6 +121,17 @@ SettingsWindow::SettingsWindow(Settings &settings, HotkeyManager &hotkey, QWidge
         settings.foregroundSafety = safety->isChecked();
         settings.indicator = indicator->isChecked();
         settings.restoreScene = restore->isChecked();
+        hotkey.save(settings.data);
+        if (!settings.save()) {
+            obs_data_release(settings.data);
+            settings.data = previousData;
+            std::tie(settings.startMode, settings.cursor, settings.rememberRegion,
+                     settings.foregroundSafety, settings.indicator, settings.restoreScene) = previous;
+            hotkey.load(settings.data);
+            QMessageBox::warning(this, text("Title"), text("SettingsSaveFailed"));
+            return;
+        }
+        obs_data_release(previousData);
         accept();
     });
     resize(520, sizeHint().height());

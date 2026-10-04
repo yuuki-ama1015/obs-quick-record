@@ -20,16 +20,15 @@ QuickRecordController::QuickRecordController() : launcherSession([this] {
     hotkey.save(settings.data);
     settings.save(); // Export the actual binding for the optional external launcher.
     connect(&launcherTimer, &QTimer::timeout, this, [this] {
-        if (shuttingDown) return;
-        if (!obs_current_module()) return;
-        char *path = obs_module_config_path("launch-request.txt");
-        if (!path) return;
-        const QString requestPath = QString::fromUtf8(path);
-        bfree(path);
+        if (shuttingDown || launcherWait.elapsed() >= 60000) { launcherTimer.stop(); return; }
         bool autoExit = false;
-        if (consumeLauncherRequest(requestPath, QCoreApplication::applicationPid(), &autoExit)) {
+        if (consumeLauncherRequest(launcherRequestPath, QCoreApplication::applicationPid(), &autoExit)) {
+            launcherTimer.stop();
             blog(LOG_INFO, "OBS Quick Record: launcher request received");
-            if (autoExit) launcherSession.claim(static_cast<QWidget *>(obs_frontend_get_main_window()));
+            if (autoExit && !externalRecording && (requested || !obs_frontend_recording_active()) &&
+                !obs_frontend_streaming_active() && !obs_frontend_replay_buffer_active() && !obs_frontend_virtualcam_active())
+                launcherSession.claim(static_cast<QWidget *>(obs_frontend_get_main_window()));
+            launcherSession.complete(); // Transient selection/settings UI delays, rather than discards, ownership.
             if (state == QuickRecordState::Idle && !pending) toggle();
         }
     });
@@ -88,7 +87,10 @@ QuickRecordController::~QuickRecordController()
 void QuickRecordController::frontendEvent(obs_frontend_event event, void *data)
 {
     auto *self = static_cast<QuickRecordController *>(data);
-    QMetaObject::invokeMethod(self, [self, event] { self->onEvent(event); }, Qt::AutoConnection);
+    // STOPPED may be delivered by an earlier output signal subscriber on this thread.
+    // Defer cleanup until every stop subscriber has captured the output result.
+    QMetaObject::invokeMethod(self, [self, event] { self->onEvent(event); },
+        event == OBS_FRONTEND_EVENT_RECORDING_STOPPED ? Qt::QueuedConnection : Qt::AutoConnection);
 }
 void QuickRecordController::onEvent(obs_frontend_event event)
 {
@@ -96,12 +98,22 @@ void QuickRecordController::onEvent(obs_frontend_event event)
     if (shuttingDown) return;
     if (event == OBS_FRONTEND_EVENT_FINISHED_LOADING) {
         CaptureController::removeStaleScene();
-        launcherTimer.start(500);
+        if (obs_current_module()) {
+            char *path = obs_module_config_path("launch-request.txt");
+            launcherRequestPath = QString::fromUtf8(path);
+            bfree(path);
+            launcherWait.start();
+            if (!launcherRequestPath.isEmpty()) launcherTimer.start(500);
+        }
+    } else if (event == OBS_FRONTEND_EVENT_RECORDING_STARTING && requested) {
+        recordingResult.store(OBS_OUTPUT_ERROR);
+        watchRecording();
     } else if (event == OBS_FRONTEND_EVENT_RECORDING_STARTING && !requested) {
         launcherSession.retain();
         externalRecording = true;
         if (state != QuickRecordState::Idle || pending) finish();
     } else if (event == OBS_FRONTEND_EVENT_RECORDING_STARTED && pending && requested) {
+        watchRecording(); // Cover an output replaced by an OBS recording mode.
         pending = false;
         state = QuickRecordState::Recording;
         startTimeout.stop();
@@ -123,9 +135,12 @@ void QuickRecordController::onEvent(obs_frontend_event event)
         settings.save();
         blog(LOG_INFO, "OBS Quick Record: recording started");
     } else if (event == OBS_FRONTEND_EVENT_RECORDING_STOPPED) {
+        const bool failed = requested && recordingResult.load() != OBS_OUTPUT_SUCCESS;
+        if (failed) launcherSession.retain();
         externalRecording = false;
         blog(LOG_INFO, "OBS Quick Record: recording stopped");
         finish();
+        if (failed) notify("RecordingFailed");
     } else if (event == OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN || event == OBS_FRONTEND_EVENT_EXIT) {
         launcherSession.retain();
         shuttingDown = true;
@@ -150,6 +165,7 @@ void QuickRecordController::onEvent(obs_frontend_event event)
 }
 void QuickRecordController::notify(const char *key)
 {
+    launcherSession.retain(); // Preserve OBS and its diagnostics after any Quick Record error.
     blog(LOG_WARNING, "OBS Quick Record: %s", key);
     if (shuttingDown) return;
     auto *box = new QMessageBox(QMessageBox::Information, text("Title"), text(key), QMessageBox::Ok);
@@ -193,7 +209,6 @@ void QuickRecordController::showSettings()
     if (!settingsWindow) {
         settingsWindow = new SettingsWindow(settings, hotkey, static_cast<QWidget *>(obs_frontend_get_main_window()));
         settingsWindow->setAttribute(Qt::WA_DeleteOnClose);
-        connect(settingsWindow, &QDialog::accepted, this, [this] { hotkey.save(settings.data); settings.save(); });
     }
     settingsWindow->show(); settingsWindow->raise(); settingsWindow->activateWindow();
     const auto geometry = settingsWindow->geometry();
@@ -202,6 +217,7 @@ void QuickRecordController::showSettings()
 }
 void QuickRecordController::finish()
 {
+    unwatchRecording();
     startTimeout.stop();
     prepareTimer.stop();
     countdown.stop();
@@ -212,4 +228,29 @@ void QuickRecordController::finish()
     pending = false;
     state = QuickRecordState::Idle;
     if (!shuttingDown) launcherSession.complete();
+}
+void QuickRecordController::recordingStopped(void *data, calldata_t *params)
+{
+    auto *self = static_cast<QuickRecordController *>(data);
+    // OBS invokes this signal on its output thread, before the queued frontend STOPPED event.
+    const int code = static_cast<int>(calldata_int(params, "code"));
+    self->recordingResult.store(code);
+    if (code != OBS_OUTPUT_SUCCESS)
+        blog(LOG_ERROR, "OBS Quick Record: recording failed code=%d error=%s", code,
+             calldata_string(params, "last_error") ? calldata_string(params, "last_error") : "");
+}
+void QuickRecordController::watchRecording()
+{
+    auto *output = obs_frontend_get_recording_output(); // Owned reference, verified in OBS 32.2.2.
+    if (output == recordingOutput) { obs_output_release(output); return; }
+    unwatchRecording();
+    recordingOutput = output;
+    if (output) signal_handler_connect(obs_output_get_signal_handler(output), "stop", recordingStopped, this);
+}
+void QuickRecordController::unwatchRecording()
+{
+    if (!recordingOutput) return;
+    signal_handler_disconnect(obs_output_get_signal_handler(recordingOutput), "stop", recordingStopped, this);
+    obs_output_release(recordingOutput);
+    recordingOutput = nullptr;
 }
