@@ -1,5 +1,9 @@
 param([switch]$StartWithWindows)
 $ErrorActionPreference = 'Stop'
+$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+try { $admin = ([Security.Principal.WindowsPrincipal]::new($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) }
+finally { $identity.Dispose() }
+if ($admin) { throw 'Run this installer from a normal, non-administrator PowerShell window so OBS startup assistant runs as your user.' }
 $source = Join-Path $PSScriptRoot 'bin/64bit/obs-quick-record-launcher.exe'
 if (!(Test-Path $source)) { throw 'Run the installer from an extracted plugin package' }
 $destination = Join-Path $env:LOCALAPPDATA 'OBSQuickRecordLauncher'

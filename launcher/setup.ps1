@@ -1,4 +1,4 @@
-param([switch]$NoStartup)
+﻿param([switch]$NoStartup, [switch]$PluginOnly)
 $ErrorActionPreference = 'Stop'
 
 $pluginSource = Join-Path $PSScriptRoot 'bin/64bit/obs-quick-record.dll'
@@ -7,41 +7,39 @@ if (!(Test-Path -LiteralPath $pluginSource) -or !(Test-Path -LiteralPath $launch
     throw 'Extract the complete obs-quick-record package before running this installer.'
 }
 
+function Install-Plugin {
+    param([string]$PackageRoot)
+    if (Get-Process -Name obs64 -ErrorAction SilentlyContinue) {
+        throw 'Exit OBS from its tray icon before installing or updating Quick Record.'
+    }
+    $destination = Join-Path $env:ProgramData 'obs-studio/plugins/obs-quick-record'
+    $bin = Join-Path $destination 'bin/64bit'
+    $locale = Join-Path $destination 'data/locale'
+    New-Item -ItemType Directory -Path $bin, $locale -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'bin/64bit/obs-quick-record.dll') -Destination (Join-Path $bin 'obs-quick-record.dll') -Force
+    foreach ($language in 'en-US', 'ja-JP') {
+        Copy-Item -LiteralPath (Join-Path $PackageRoot "data/locale/$language.ini") -Destination $locale -Force
+    }
+}
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-$principal = [Security.Principal.WindowsPrincipal]::new($identity)
-if (!$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    $script = '"' + $PSCommandPath + '"'
-    $installerArguments = "-NoProfile -ExecutionPolicy Bypass -NoExit -File $script"
-    if ($NoStartup) { $installerArguments += ' -NoStartup' }
-    Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -Verb RunAs -ArgumentList $installerArguments
-    exit
+try { $admin = ([Security.Principal.WindowsPrincipal]::new($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) }
+finally { $identity.Dispose() }
+# Only the machine-wide plugin copy runs elevated; no user paths or process launches here.
+if ($PluginOnly) {
+    if (!$admin) { throw 'The plugin copy requires administrator approval.' }
+    Install-Plugin $PSScriptRoot
+    exit 0
 }
-
-if (Get-Process -Name obs64 -ErrorAction SilentlyContinue) {
-    throw 'Exit OBS from its tray icon before installing or updating Quick Record.'
-}
+if ($admin) { throw 'Run this installer from a normal, non-administrator PowerShell window. It requests approval for the plugin copy only.' }
+if (Get-Process -Name obs64 -ErrorAction SilentlyContinue) { throw 'Exit OBS from its tray icon before installing or updating Quick Record.' }
 if (Get-Process -Name obs-quick-record-launcher -ErrorAction SilentlyContinue) {
     throw 'Exit OBS startup assistant from its tray menu before installing or updating.'
 }
 
-$pluginDestination = Join-Path $env:ProgramData 'obs-studio/plugins/obs-quick-record'
-$pluginBin = Join-Path $pluginDestination 'bin/64bit'
-$locale = Join-Path $pluginDestination 'data/locale'
-$launcherDestination = Join-Path $env:LOCALAPPDATA 'OBSQuickRecordLauncher'
-$launcherExe = Join-Path $launcherDestination 'obs-quick-record-launcher.exe'
-New-Item -ItemType Directory -Path $pluginBin, $locale, $launcherDestination -Force | Out-Null
-Copy-Item -LiteralPath $pluginSource -Destination (Join-Path $pluginBin 'obs-quick-record.dll') -Force
-Copy-Item -Path (Join-Path $PSScriptRoot 'data/locale/*.ini') -Destination $locale -Force
-Copy-Item -LiteralPath $launcherSource -Destination $launcherExe -Force
-
-if (!$NoStartup) {
-    $startup = [Environment]::GetFolderPath([Environment+SpecialFolder]::Startup)
-    $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $startup 'OBS Quick Record Launcher.lnk'))
-    $shortcut.TargetPath = $launcherExe
-    $shortcut.WorkingDirectory = $launcherDestination
-    $shortcut.Save()
-}
-
-Start-Process -FilePath $launcherExe -WindowStyle Hidden
+$powershell = Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe'
+$child = Start-Process -FilePath $powershell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -PluginOnly" -WindowStyle Hidden -PassThru -Wait
+if ($child.ExitCode -ne 0) { throw 'Quick Record plugin installation failed. OBS startup assistant was not installed or started.' }
+# Continue in the original user's unelevated process, even with alternate UAC credentials.
+& (Join-Path $PSScriptRoot 'OBS起動アシストのみをインストール.ps1') -StartWithWindows:(!$NoStartup)
 Write-Host 'Quick Record and OBS startup assistant are installed. OBS will load the plugin the next time it starts.'
 if (!$NoStartup) { Write-Host 'OBS startup assistant will also start automatically when you sign in to Windows.' }

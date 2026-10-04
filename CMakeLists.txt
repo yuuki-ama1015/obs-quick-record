@@ -46,6 +46,7 @@ install(FILES launcher/install.ps1 DESTINATION obs-quick-record RENAME "OBS起�
 install(FILES launcher/setup.ps1 DESTINATION obs-quick-record RENAME "OBS Quick RecordとOBS起動アシストをまとめてインストール.ps1")
 include(CTest)
 if(BUILD_TESTING)
+  add_test(NAME installer-check COMMAND "${POWERSHELL_EXECUTABLE}" -NoProfile -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/installer-check.ps1")
   add_test(NAME launcher-binding-check COMMAND "${CMAKE_CURRENT_BINARY_DIR}/obs-quick-record-launcher.exe" --check)
   add_executable(launcher-request-check tests/launcher-request-check.cpp)
   target_include_directories(launcher-request-check PRIVATE src)
