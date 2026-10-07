@@ -78,8 +78,10 @@ QuickRecordController::~QuickRecordController()
     launcherSession.retain();
     launcherTimer.stop();
     if (frontendRegistered) obs_frontend_remove_event_callback(frontendEvent, this);
-    hotkey.save(settings.data);
-    settings.save();
+    if (!shutdownSettingsSaved) {
+        hotkey.save(settings.data);
+        settings.save();
+    }
     delete settingsWindow;
     delete toolsAction;
     finish();
@@ -151,7 +153,7 @@ void QuickRecordController::onEvent(obs_frontend_event event)
         frontendRegistered = false;
         hotkey.save(settings.data);
         hotkey.shutdown();
-        settings.save();
+        shutdownSettingsSaved = settings.save();
         delete settingsWindow;
         finish();
     } else if (event == OBS_FRONTEND_EVENT_STREAMING_STARTING || event == OBS_FRONTEND_EVENT_REPLAY_BUFFER_STARTING || event == OBS_FRONTEND_EVENT_VIRTUALCAM_STARTED) {

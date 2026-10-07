@@ -1,6 +1,7 @@
 #pragma once
 #include <QObject>
 #include <QTimer>
+#include <QElapsedTimer>
 #include <memory>
 #include <vector>
 #include "capture-region.hpp"
@@ -25,7 +26,7 @@ private:
     class Surface;
     friend class Surface;
     void chooseMode(CaptureKind);
-    void hover();
+    void hover(bool force = false);
     void press(const QPoint &physical);
     void release(const QPoint &physical);
     void repaint();
@@ -34,6 +35,8 @@ private:
     CaptureTarget selected;
     CaptureKind mode = CaptureKind::Monitor;
     QTimer hoverTimer;
+    QElapsedTimer hoverScan;
+    QPoint hoverPosition;
     QString status;
     bool ready = false;
     bool dragging = false;

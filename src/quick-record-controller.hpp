@@ -35,6 +35,7 @@ private:
     QuickRecordState state = QuickRecordState::Idle;
     bool pending = false;
     bool shuttingDown = false;
+    bool shutdownSettingsSaved = false;
     bool frontendRegistered = false;
     LauncherSession launcherSession;
     Settings settings;

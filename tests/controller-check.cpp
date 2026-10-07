@@ -31,6 +31,8 @@ static struct {
     bool targetLost = false;
     bool otherOutput = false, replay = false, virtualCamera = false;
     bool outputMissing = false;
+    bool saveFails = false;
+    int saves = 0;
     bool stopInsideSignal = false;
     int configReads = 0;
     int opens = 0, prepares = 0, starts = 0, stops = 0, cleanups = 0, staleCleanups = 0;
@@ -126,7 +128,7 @@ bool obs_frontend_virtualcam_active() { return qa.virtualCamera; }
 }
 Settings::Settings() : startMode(qa.mode), foregroundSafety(false), data(obs_data_create()) {}
 Settings::~Settings() { obs_data_release(data); }
-bool Settings::save() { return true; }
+bool Settings::save() { ++qa.saves; return !qa.saveFails; }
 class QuickRecordOverlay::Surface {};
 QuickRecordOverlay::QuickRecordOverlay() { qa.overlay = this; }
 QuickRecordOverlay::~QuickRecordOverlay() { qa.overlay = nullptr; }
@@ -395,6 +397,18 @@ int main(int argc, char **argv)
         assert(qa.opens == 1 && !qa.callback);
         idle();
     });
+    scenario(StartMode::Confirm, [] {
+        assert(qa.saves == 1);
+        event(OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN);
+        assert(qa.saves == 2);
+    });
+    assert(qa.saves == 2); // Successful shutdown does not save again on unload.
+    scenario(StartMode::Confirm, [] {
+        qa.saveFails = true;
+        event(OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN);
+        qa.saveFails = false;
+    });
+    assert(qa.saves == 3); // Failed shutdown save can still retry on unload.
     obs_output_release(testOutput);
     obs_shutdown();
     std::cout << "confirm/countdown/immediate, cancellation, failure, external stop and shutdown passed\n";

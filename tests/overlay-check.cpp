@@ -100,5 +100,20 @@ int main(int argc, char **argv)
     for (auto *widget : QApplication::topLevelWidgets())
         if (widget->isVisible() && widget->windowTitle().startsWith("Title")) reopened = true;
     assert(reopened);
+    // Stationary window/monitor hover slows down; confirmation/cancellation stops it.
+    auto *hoverTimer = overlay.findChild<QTimer *>();
+    assert(hoverTimer);
+    for (auto *widget : QApplication::topLevelWidgets()) {
+        if (!widget->isVisible() || !widget->windowTitle().startsWith("Title")) continue;
+        for (auto *button : widget->findChildren<QPushButton *>()) {
+            if (button->text() == "Monitor") { button->click(); surface = widget; break; }
+        }
+        break;
+    }
+    assert(hoverTimer->isActive() && hoverTimer->interval() == 50);
+    wait();
+    assert(hoverTimer->interval() == 250);
+    key(surface, Qt::Key_Escape);
+    assert(!hoverTimer->isActive());
     std::cout << "selection confirmation, scoped Enter/Escape, repeat and mode reset passed\n";
 }

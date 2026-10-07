@@ -80,15 +80,22 @@ public:
     }
     void mousePressEvent(QMouseEvent *e) override { if (owner && e->button() == Qt::LeftButton) owner->press(physicalPoint(e)); }
     void mouseReleaseEvent(QMouseEvent *e) override { if (owner && e->button() == Qt::LeftButton) owner->release(physicalPoint(e)); }
+    void mouseMoveEvent(QMouseEvent *) override
+    {
+        if (owner && !owner->ready && owner->mode != CaptureKind::Region) {
+            if (owner->hoverTimer.interval() != 50) owner->hoverTimer.setInterval(50);
+            owner->hover();
+        }
+    }
     void closeEvent(QCloseEvent *event) override
     {
         if (owner) { owner->hide(); emit owner->canceled(); }
         event->accept();
     }
 };
-QuickRecordOverlay::QuickRecordOverlay()
+QuickRecordOverlay::QuickRecordOverlay() : hoverTimer(this)
 {
-    connect(&hoverTimer, &QTimer::timeout, this, &QuickRecordOverlay::hover);
+    connect(&hoverTimer, &QTimer::timeout, this, [this] { hover(); });
 }
 QuickRecordOverlay::~QuickRecordOverlay() { qApp->removeEventFilter(this); }
 void QuickRecordOverlay::open()
@@ -99,6 +106,7 @@ void QuickRecordOverlay::open()
     selected = {};
     mode = CaptureKind::Region;
     dragging = false;
+    hoverScan.invalidate();
     status = text("SelectHint");
     for (const auto &monitor : monitors) {
         auto surface = std::make_unique<Surface>(*this, monitor);
@@ -150,6 +158,7 @@ void QuickRecordOverlay::chooseMode(CaptureKind value)
     ready = false;
     dragging = false;
     selected = {};
+    hoverScan.invalidate();
     status = text("SelectHint");
     emit selectionReset();
     if (mode == CaptureKind::Region) hoverTimer.stop();
@@ -157,16 +166,24 @@ void QuickRecordOverlay::chooseMode(CaptureKind value)
     for (auto &surface : surfaces) surface->setCursor(mode == CaptureKind::Region ? Qt::CrossCursor : Qt::ArrowCursor);
     repaint();
 }
-void QuickRecordOverlay::hover()
+void QuickRecordOverlay::hover(bool force)
 {
     if (ready) return;
     if (mode == CaptureKind::Region && !dragging) return;
+    const auto position = MonitorSelector::cursor();
+    if (mode != CaptureKind::Region) {
+        if (!force && hoverScan.isValid() && hoverScan.elapsed() < 50) return;
+        const bool moved = !hoverScan.isValid() || hoverPosition != position;
+        hoverPosition = position;
+        hoverScan.restart();
+        hoverTimer.start(moved ? 50 : 250); // Still recheck stationary windows for movement/z-order changes.
+    }
     const auto previous = selected;
     const auto previousStatus = status;
-    if (mode == CaptureKind::Monitor) selected = MonitorSelector::at(MonitorSelector::cursor(), monitors);
-    else if (mode == CaptureKind::Window) selected = WindowSelector::at(MonitorSelector::cursor(), monitors);
+    if (mode == CaptureKind::Monitor) selected = MonitorSelector::at(position, monitors);
+    else if (mode == CaptureKind::Window) selected = WindowSelector::at(position, monitors);
     else if (mode == CaptureKind::Region && dragging) {
-        selected = RegionSelector::between(dragStart, MonitorSelector::cursor(), monitors);
+        selected = RegionSelector::between(dragStart, position, monitors);
         status = QString("%1 × %2\n").arg(selected.physical.width()).arg(selected.physical.height()) + text("SelectHint");
     }
     if (selected.physical != previous.physical || selected.windowHandle != previous.windowHandle ||
@@ -179,12 +196,12 @@ void QuickRecordOverlay::press(const QPoint &physical)
     ready = false;
     if (mode == CaptureKind::Region) { dragging = true; dragStart = physical; hoverTimer.start(16); }
     emit selectionReset();
-    hover();
+    hover(true);
 }
 void QuickRecordOverlay::release(const QPoint &physical)
 {
     if (mode == CaptureKind::Region) selected = RegionSelector::between(dragStart, physical, monitors);
-    else hover();
+    else hover(true);
     dragging = false;
     if (mode == CaptureKind::Region) hoverTimer.stop();
     if (!selected.valid()) {

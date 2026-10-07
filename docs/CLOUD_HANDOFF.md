@@ -1,12 +1,12 @@
 # GitHubから開発を再開する
 
-更新日：2026-10-04。対象はWindows用OBS Quick Record 0.1.0開発版です。未確認の実機条件があり、安定版・MVP受入完了とは宣言していません。
+更新日：2026-10-07。対象はWindows用OBS Quick Record 0.1.1です。未確認の実機条件があり、安定版・MVP受入完了とは宣言していません。
 
 ## 再開の入口
 
 1. https://github.com/yuuki-ama1015/obs-quick-record のmainをcloneする。最新コードはmain、配布時点のコードは各Releaseのタグを参照する。
 2. AGENTS.md、README.md、この文書、docs/design.md、docs/testing.mdの末尾を読む。担当者へ渡すプロンプトはdocs/CLOUD_PROMPT.md。
-3. 最新の開発版Releaseは https://github.com/yuuki-ama1015/obs-quick-record/releases 。この更新を同封した版はv0.1.0-dev-review-fixes-r2。配布ZIP、ソースZIP、Git bundle、各SHA-256を提供する。DLL配布ZIPだけでは開発できない。
+3. 配布は https://github.com/yuuki-ama1015/obs-quick-record/releases/latest の最新版1件のみ。添付は一般ユーザー向けのobs-quick-record.zipだけ。開発用ソースはGitHubのmainまたはReleaseのタグから取得する。旧ソースZIP・Git bundle・SHA-256添付は廃止している。
 4. Windowsでビルドする場合はREADMEの手順を使う。Visual Studio 2022のx64 C++/Windows SDK、CMake、Ninja、Gitを用意する。tools/prepare-sdk.ps1が固定版のOBS/Qtを再取得する。GitHub ActionsのWindows buildも利用できる。
 
 会話履歴、ローカルのソース・SDK・QA環境・引き継ぎファイルに依存しない。個人設定、録画、私的メモはGitHub/配布物に含めない。旧QA環境を復元する代わりに、必要な試験環境を新しく作る。
@@ -56,3 +56,6 @@ Frontend/Captureを置換したテストの合格を実機受入へ読み替え�
 
 配布物の一括導入は同名の `.cmd` をダブルクリックする入口を使用します。Windows全体の実行ポリシーを変更せず、Windows PowerShellを `-NoProfile -ExecutionPolicy Bypass` で起動します。`.ps1` は成功・失敗の表示をEnterまで保持し、内部呼び出しでは `-NoPause` を指定します。管理者子プロセスはプラグインのコピーだけを行い、待機しません。実行ポリシーがスクリプト開始前に拒否した場合は `.ps1` 自身では対処できません。`tests/installer-check.ps1` は日本語・空白を含む展開先とRestrictedのプロセスポリシーで、配布入口のエラー表示・終了コードを検証します。
 
+## 2026-10-07 レビュー改善の再開ポイント
+
+インストーラーは必要な5ファイルを事前検証し、管理者のコピー失敗理由を元の画面へ伝える。成功/失敗/UAC取消で一時診断ファイルを削除する。通知領域メニューはOBS稼働中/起動待ちに理由を表示して無効化。オーバーレイはRegionSelector::selectionDamageでDPI変換後の変更前後の領域だけを更新し、静止時の探索を250msにする。起動アシストは通常1秒/起動待ち500ms、OBS不在探索2秒（キー/メニュー操作は即時）。終了保存は成功済みなら重複しない。検証の詳細・限界はdocs/testing.md末尾。

@@ -28,7 +28,7 @@ sealed class Launcher : ApplicationContext
     [DllImport("user32.dll")] static extern bool UnregisterHotKey(IntPtr hwnd, int id);
     readonly string config = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "obs-studio", "plugin_config", "obs-quick-record");
     readonly HotkeyWindow window = new HotkeyWindow();
-    readonly System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer { Interval = 500 };
+    readonly System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer { Interval = RefreshInterval(false) };
     readonly System.Drawing.Icon trayIcon = LoadTrayIcon();
     readonly NotifyIcon icon = new NotifyIcon { Text = Text("OBS起動アシスト", "OBS startup assistant") };
     static System.Drawing.Icon LoadTrayIcon()
@@ -142,6 +142,7 @@ try {
     }
 
     static int CurrentSession() { using (var process = Process.GetCurrentProcess()) return process.SessionId; }
+    static int RefreshInterval(bool pending) { return pending ? 500 : 1000; }
     bool ObsRunning(bool refresh = false)
     {
         if (obsProcess != null)
@@ -151,7 +152,7 @@ try {
             obsProcess.Dispose(); obsProcess = null; nextProcessScan = DateTime.MinValue;
         }
         if (!refresh && DateTime.UtcNow < nextProcessScan) return false;
-        nextProcessScan = DateTime.UtcNow.AddSeconds(1);
+        nextProcessScan = DateTime.UtcNow.AddSeconds(2); // Launch/menu requests bypass this idle cache.
         foreach (Process process in Process.GetProcessesByName("obs64"))
         {
             try { if (obsProcess == null && process.SessionId == session && !process.HasExited) { obsProcess = process; continue; } }
@@ -244,6 +245,7 @@ try {
             Log("hotkey registered " + identity);
         }
         catch (Exception exception) { ReleaseKey(); Error(exception.Message); }
+        finally { timer.Interval = RefreshInterval(pendingUntil != DateTime.MinValue); }
     }
     void Launch()
     {
@@ -257,6 +259,7 @@ try {
             obsProcess = Process.Start(new ProcessStartInfo(ObsPath, "--minimize-to-tray") { WorkingDirectory = Path.GetDirectoryName(ObsPath), UseShellExecute = false });
             File.WriteAllText(RequestPath, obsProcess.Id.ToString() + "\nexit-after-capture");
             pendingUntil = DateTime.UtcNow.AddSeconds(60);
+            timer.Interval = RefreshInterval(true);
             Log("OBS launched; selector requested");
         }
         catch (Exception exception) { pendingUntil = DateTime.MinValue; Error(exception.Message); }
@@ -349,6 +352,7 @@ try {
     {
         if (args.Length == 1 && args[0] == "--check")
         {
+            if (RefreshInterval(false) != 1000 || RefreshInterval(true) != 500) return 1;
             using (var item = new ToolStripMenuItem()) {
                 UpdateSelectionItem(item, false, false);
                 if (!item.Enabled) return 1;

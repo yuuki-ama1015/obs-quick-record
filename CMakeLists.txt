@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(obs-quick-record VERSION 0.1.0 LANGUAGES CXX)
+project(obs-quick-record VERSION 0.1.1 LANGUAGES CXX)
 if(NOT WIN32 OR NOT MSVC OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
   message(FATAL_ERROR "Windows x64 MSVC and the OBS Qt SDK are required")
 endif()
