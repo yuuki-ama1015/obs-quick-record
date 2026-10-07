@@ -261,14 +261,28 @@ try {
         }
         catch (Exception exception) { pendingUntil = DateTime.MinValue; Error(exception.Message); }
     }
+    static void UpdateSelectionItem(ToolStripMenuItem item, bool running, bool pending)
+    {
+        item.Enabled = !running && !pending;
+        item.Text = running ? Text("OBS起動中：設定したショートカットで選択", "OBS is running: use your recording shortcut") :
+            pending ? Text("OBSの起動を待っています…", "Waiting for OBS to start…") :
+            Text("録画対象の選択を開く", "Launch OBS selection");
+    }
     Launcher()
     {
         icon.Icon = trayIcon; icon.Visible = true;
         window.Pressed = Launch;
         var menu = new ContextMenuStrip();
-        menu.Items.Add(Text("録画対象の選択を開く", "Launch OBS selection"), null, (sender, args) => Launch());
+        var selection = new ToolStripMenuItem();
+        selection.Click += (sender, args) => Launch();
+        menu.Items.Add(selection);
         var startup = new ToolStripMenuItem(Text("サインイン時の自動起動を登録", "Register automatic startup at sign-in"));
-        menu.Opening += (sender, args) => startup.Checked = File.Exists(StartupPath);
+        menu.Opening += (sender, args) => {
+            bool running = ObsRunning(true);
+            if (running) ReleaseKey();
+            UpdateSelectionItem(selection, running, pendingUntil != DateTime.MinValue);
+            startup.Checked = File.Exists(StartupPath);
+        };
         startup.Click += (sender, args) => {
             try { SetStartup(!File.Exists(StartupPath), StartupPath, ExecutablePath); startup.Checked = File.Exists(StartupPath); }
             catch (Exception exception) { Error(exception.Message); }
@@ -335,6 +349,17 @@ try {
     {
         if (args.Length == 1 && args[0] == "--check")
         {
+            using (var item = new ToolStripMenuItem()) {
+                UpdateSelectionItem(item, false, false);
+                if (!item.Enabled) return 1;
+                string idle = item.Text;
+                UpdateSelectionItem(item, true, false);
+                if (item.Enabled || item.Text == idle) return 1;
+                UpdateSelectionItem(item, false, true);
+                if (item.Enabled || item.Text == idle) return 1;
+                UpdateSelectionItem(item, false, false);
+                if (!item.Enabled || item.Text != idle) return 1;
+            }
             using (var image = LoadTrayIcon()) if (image.Width <= 0 || image.Height <= 0) return 1;
             uint[] initial = Binding(null), changed = Binding("{\"launcherVirtualKey\":121,\"launcherModifiers\":6}"), unbound = Binding("{\"hotkey\":[]}"), legacy = Binding("{\"hotkey\":[{\"alt\":true,\"key\":\"OBS_KEY_R\"}]}");
             for (int digit = 0; digit <= 9; ++digit)
