@@ -26,6 +26,18 @@ int main(int argc, char **argv)
         assert(logical == QRectF(300/dpi, 300/dpi, 1200/dpi, 600/dpi));
         assert(RegionSelector::toPhysical(logical.topLeft(), monitor, QSize(int(2400/dpi), int(1200/dpi))) == selected.topLeft());
         assert(RegionSelector::toPhysical(logical.bottomRight(), monitor, QSize(int(2400/dpi), int(1200/dpi))) == selected.topLeft() + QPoint(selected.width(), selected.height()));
+        const QSize size(int(2400/dpi), int(1200/dpi));
+        const auto moved = selected.translated(30, 20);
+        const auto damage = RegionSelector::selectionDamage(selected, moved, monitor, size);
+        assert(damage.contains(logical.toAlignedRect())); // Erase the old transparent hole.
+        assert(damage.contains(RegionSelector::toLogical(moved, monitor, size).toAlignedRect()));
+        assert(damage.boundingRect() != QRect(QPoint(0, 0), size));
+        assert(RegionSelector::selectionDamage(selected, selected, monitor, size).isEmpty());
+        assert(RegionSelector::selectionDamage({}, selected, monitor, size) ==
+               RegionSelector::selectionDamage(selected, {}, monitor, size)); // Cancel restores the old area.
     }
+    assert(RegionSelector::selectionDamage({100, 100, 50, 50}, {120, 100, 50, 50}, left.physical, QSize(2560, 1440)).isEmpty());
+    const auto clipped = RegionSelector::selectionDamage({}, {-20, -20, 100, 100}, right.physical, QSize(3840, 2160));
+    assert(clipped.boundingRect().topLeft() == QPoint(0, 0));
     std::cout << "physical coordinates, reverse drag, cross-monitor rejection, 100/125/150/200% passed\n";
 }

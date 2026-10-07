@@ -19,6 +19,7 @@ class QuickRecordOverlay::Surface : public QWidget {
 public:
     QPointer<QuickRecordOverlay> owner;
     MonitorInfo monitor;
+    QRect lastSelection;
     QLabel *label;
     Surface(QuickRecordOverlay &owner, MonitorInfo monitor)
         : QWidget(nullptr, Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint), owner(&owner), monitor(monitor)
@@ -62,6 +63,7 @@ public:
     {
         if (!owner) return;
         QPainter p(this);
+        p.setCompositionMode(QPainter::CompositionMode_Source);
         p.fillRect(rect(), QColor(0,0,0,95));
         if (!owner->selected.physical.isEmpty()) {
             auto selection = localRect(owner->selected.physical);
@@ -200,6 +202,9 @@ void QuickRecordOverlay::repaint()
 {
     for (auto &surface : surfaces) {
         if (surface->label->text() != status) surface->label->setText(status);
-        surface->update();
+        const auto damage = RegionSelector::selectionDamage(surface->lastSelection, selected.physical,
+                                                            surface->monitor.physical, surface->size());
+        surface->lastSelection = selected.physical;
+        if (!damage.isEmpty()) surface->update(damage);
     }
 }

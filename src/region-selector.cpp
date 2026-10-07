@@ -1,5 +1,16 @@
 #include "region-selector.hpp"
 #include <algorithm>
+QRegion RegionSelector::selectionDamage(const QRect &previous, const QRect &current, const QRect &monitor, const QSize &logicalSize)
+{
+    if (previous == current) return {};
+    const QRect surface(QPoint(0, 0), logicalSize);
+    auto area = [&](const QRect &physical) {
+        // Local logical pixels, including margin for the 3px selection outline.
+        return physical.isEmpty() ? QRegion{} : QRegion(toLogical(physical, monitor, logicalSize)
+            .toAlignedRect().adjusted(-4, -4, 4, 4).intersected(surface));
+    };
+    return area(previous).united(area(current));
+}
 CaptureTarget RegionSelector::between(QPoint start, QPoint end, const std::vector<MonitorInfo> &monitors)
 {
     CaptureTarget result;
