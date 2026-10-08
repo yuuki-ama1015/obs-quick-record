@@ -68,6 +68,7 @@ int main(int argc, char **argv)
 
         auto edit = [&](QDialogButtonBox::StandardButton button) {
             SettingsWindow dialog(settings, hotkey);
+            dialog.findChild<QComboBox *>("recordingQuality")->setCurrentIndex(1);
             auto *field = dialog.findChild<QLineEdit *>();
             assert(field);
             // A Windows native VK is required by the same conversion OBS uses.
@@ -76,13 +77,16 @@ int main(int argc, char **argv)
             dialog.findChild<QDialogButtonBox *>()->button(button)->click();
         };
         edit(QDialogButtonBox::Cancel);
+        assert(!settings.economy);
         expect(hotkey, INTERACT_ALT_KEY, OBS_KEY_R);
         edit(QDialogButtonBox::Save);
+        assert(settings.economy);
         expect(hotkey, INTERACT_CONTROL_KEY | INTERACT_SHIFT_KEY, OBS_KEY_R);
         {
             SettingsWindow dialog(settings, hotkey);
             dialog.show();
             dialog.findChild<QComboBox *>()->setCurrentIndex(2);
+            dialog.findChild<QComboBox *>("recordingQuality")->setCurrentIndex(0);
             QKeyEvent key(QEvent::KeyPress, Qt::Key_O, Qt::AltModifier, 0, 0x4F, 0);
             QApplication::sendEvent(dialog.findChild<QLineEdit *>(), &key);
             saveOK = false;
@@ -94,10 +98,12 @@ int main(int argc, char **argv)
             });
             dialog.findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save)->click();
             assert(errorShown && dialog.isVisible() && settings.startMode == StartMode::Confirm);
+            assert(settings.economy);
             expect(hotkey, INTERACT_CONTROL_KEY | INTERACT_SHIFT_KEY, OBS_KEY_R);
             saveOK = true;
             dialog.findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save)->click();
             assert(dialog.result() == QDialog::Accepted && settings.startMode == StartMode::Countdown);
+            assert(!settings.economy);
             expect(hotkey, INTERACT_ALT_KEY, OBS_KEY_O);
             hotkey.setPrimaryBinding({INTERACT_CONTROL_KEY | INTERACT_SHIFT_KEY, OBS_KEY_R});
         }

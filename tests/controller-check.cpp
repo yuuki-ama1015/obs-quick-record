@@ -13,6 +13,9 @@
 #include <QFile>
 #include <QCloseEvent>
 #include <QMessageBox>
+#include <QComboBox>
+#include <QDialogButtonBox>
+#include <QPushButton>
 #include <QThread>
 static bool moduleEnabled = false;
 static obs_output_t *testOutput = nullptr;
@@ -125,6 +128,7 @@ bool obs_frontend_recording_active() { return qa.recording; }
 bool obs_frontend_streaming_active() { return qa.otherOutput; }
 bool obs_frontend_replay_buffer_active() { return qa.replay; }
 bool obs_frontend_virtualcam_active() { return qa.virtualCamera; }
+config_t *obs_frontend_get_profile_config() { return nullptr; }
 }
 Settings::Settings() : startMode(qa.mode), foregroundSafety(false), data(obs_data_create()) {}
 Settings::~Settings() { obs_data_release(data); }
@@ -300,6 +304,26 @@ int main(int argc, char **argv)
         wait(150);
         idle();
         assert(qa.starts == 1);
+    });
+    scenario(StartMode::Confirm, [] {
+        emit qa.overlay->settingsRequested();
+        for (auto *widget : QApplication::topLevelWidgets()) {
+            auto *dialog = dynamic_cast<SettingsWindow *>(widget);
+            if (!dialog || !dialog->isVisible()) continue;
+            dialog->findChild<QComboBox *>("recordingQuality")->setCurrentIndex(1);
+            dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save)->click();
+        }
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        toggle();
+        emit qa.overlay->selectionReady(); emit qa.overlay->confirmed(); wait(150);
+        idle();
+        assert(qa.starts == 0 && qa.cleanups > 0);
+        bool notified = false;
+        for (auto *widget : QApplication::topLevelWidgets()) {
+            auto *box = qobject_cast<QMessageBox *>(widget);
+            if (box && box->text() == "QualityUnavailable") { notified = true; box->close(); }
+        }
+        assert(notified); // Unsupported quality must clean up without silently recording at full size.
     });
     scenario(StartMode::Immediate, [] {
         qa.ready = false;

@@ -58,3 +58,16 @@ OBSのobs_key_to_virtual_key（32.2.2のobs-hotkey.hで確認）で主要binding
 ユーザーの追加指示により、設定画面だけは既存Auto Stop UIを開く任意の連携を許可した。Auto Stopのplugin-main.cppで登録されたQDockWidgetのobjectName `obs-auto-stop-dock` を、OBS標準Frontend APIで取得したmain widget配下から探す。QtのsetFloatingと通常Window属性で独立表示する。Auto Stopコードの変更・リンク・固有API呼び出し・設定ファイルの直接編集は行わない。録画制御は従来通り標準イベントだけを利用する。
 
 対応ドックが存在しない場合はボタンを非表示にし、QPointerによりドック削除後のクリックも安全に扱う。ドックの所有権はOBSに残す。既存ドック配置はフロート表示に変わる。将来Auto Stopが登録IDを変更した場合は、この任意のUI導線のみ更新が必要。
+
+## Optional recording size / frame rate limit (2026-10-08)
+
+User-approved extension: add an opt-in maximum 720p / 30 fps mode to Quick Record. Keep the global canvas, video output, audio, encoder selection and saved OBS profile unchanged. Scale the existing recording encoder only, preserving the global output aspect ratio without upscaling. Round down to even pixels; use an integer frame divisor (50 → 25, 60000/1001 → 30000/1001). Restore scale mode and frame divisor at STOPPED, failed start, or shutdown. A briefly active/initialized encoder delays restoration until it is idle. Changes are in memory only; there is no profile recovery file after a crash.
+
+Audited official OBS 32.2.2, commit `ba2f32bdf791005443988a4955e963663e16b1ed`:
+
+- [SimpleOutput.cpp](https://github.com/obsproject/obs-studio/blob/32.2.2/frontend/utility/SimpleOutput.cpp): `LoadRecordingPreset_Lossy` creates `simple_video_recording`. `Output/Mode=Simple` and `SimpleOutput/RecQuality=Small` or `HQ` use this dedicated encoder. `UpdateRecording` rewrites codec quality settings, so a pre-start CRF/CQP override would be lost. `SetupOutputs` sets encoder video but preserves encoder scale and frame divisor. Stream and Lossless have different ownership/outputs and are excluded.
+- [AdvancedOutput.cpp](https://github.com/obsproject/obs-studio/blob/32.2.2/frontend/utility/AdvancedOutput.cpp): recording setup reapplies profile scaling. Advanced mode is intentionally unsupported instead of temporarily rewriting persistent configuration.
+- [obs-encoder.c](https://github.com/obsproject/obs-studio/blob/32.2.2/libobs/obs-encoder.c): `obs_encoder_set_frame_rate_divisor` returns false for active/initialized encoders. Check it before the void scale setters. `obs_encoder_set_video` preserves those properties. Getters report zero dimensions before video is attached, so derive bounds from `obs_get_video_info`. Reject pre-existing encoder scaling because there is no public raw-size getter for reliable pre-media restoration. Hold an owned encoder reference through cleanup.
+- [obs-output.c](https://github.com/obsproject/obs-studio/blob/32.2.2/libobs/obs-output.c): output preferred-size overrides persist and can be reapplied to an attached encoder. Do not use `obs_output_set_preferred_size` because its raw previous value cannot be safely restored.
+
+The feature does not reserve OBS outputs against arbitrary concurrent reconfiguration by other plugins. File-size savings depend on content/codec; unchanged audio remains a fixed contributor. Native OBS recordings after restoration retain their previous dimensions and frame rate. This does not repair selection-to-canvas stretching already present in Quick Record.

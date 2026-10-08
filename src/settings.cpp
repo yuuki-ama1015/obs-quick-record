@@ -17,6 +17,7 @@ Settings::Settings()
     for (auto key : {"cursor", "rememberRegion", "foregroundSafety", "indicator", "restoreScene"}) obs_data_set_default_bool(data, key, true);
     auto mode = obs_data_get_int(data, "startMode");
     startMode = mode >= 0 && mode <= 2 ? static_cast<StartMode>(mode) : StartMode::Confirm;
+    economy = obs_data_get_bool(data, "economy");
     cursor = obs_data_get_bool(data, "cursor");
     rememberRegion = obs_data_get_bool(data, "rememberRegion");
     foregroundSafety = obs_data_get_bool(data, "foregroundSafety");
@@ -27,6 +28,7 @@ Settings::~Settings() { obs_data_release(data); }
 bool Settings::save()
 {
     obs_data_set_int(data, "startMode", static_cast<int>(startMode));
+    obs_data_set_bool(data, "economy", economy);
     obs_data_set_bool(data, "cursor", cursor);
     obs_data_set_bool(data, "rememberRegion", rememberRegion);
     obs_data_set_bool(data, "foregroundSafety", foregroundSafety);

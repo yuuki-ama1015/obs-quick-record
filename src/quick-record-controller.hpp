@@ -11,6 +11,7 @@
 #include <QElapsedTimer>
 #include <atomic>
 #include "launcher-session.hpp"
+#include "recording-quality.hpp"
 class QAction;
 class SettingsWindow;
 
@@ -40,6 +41,7 @@ private:
     LauncherSession launcherSession;
     Settings settings;
     CaptureController capture;
+    RecordingQuality recordingQuality;
     HotkeyManager hotkey;
     QTimer startTimeout;
     QTimer countdown;

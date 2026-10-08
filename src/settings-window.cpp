@@ -72,6 +72,15 @@ SettingsWindow::SettingsWindow(Settings &settings, HotkeyManager &hotkey, QWidge
     mode->addItems({text("Confirm"), text("Immediate"), text("Countdown")});
     mode->setCurrentIndex(static_cast<int>(settings.startMode));
     layout->addWidget(mode);
+    layout->addWidget(new QLabel(text("RecordingQuality")));
+    auto *quality = new QComboBox;
+    quality->setObjectName("recordingQuality");
+    quality->addItems({text("QualityCurrent"), text("QualityEconomy")});
+    quality->setCurrentIndex(settings.economy ? 1 : 0);
+    layout->addWidget(quality);
+    auto *qualityHelp = new QLabel(text("QualityHelp"));
+    qualityHelp->setWordWrap(true);
+    layout->addWidget(qualityHelp);
     auto check = [&](const char *key, bool value) {
         auto *box = new QCheckBox(text(key));
         box->setChecked(value);
@@ -109,13 +118,14 @@ SettingsWindow::SettingsWindow(Settings &settings, HotkeyManager &hotkey, QWidge
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);
     layout->addWidget(buttons);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    connect(buttons, &QDialogButtonBox::accepted, this, [&, hotkeyEdit, mode, cursor, remember, safety, indicator, restore] {
+    connect(buttons, &QDialogButtonBox::accepted, this, [&, hotkeyEdit, mode, quality, cursor, remember, safety, indicator, restore] {
         hotkey.save(settings.data);
         auto *previousData = obs_data_create_from_json(obs_data_get_json(settings.data));
         const auto previous = std::make_tuple(settings.startMode, settings.cursor, settings.rememberRegion,
-                                              settings.foregroundSafety, settings.indicator, settings.restoreScene);
+                                              settings.foregroundSafety, settings.indicator, settings.restoreScene, settings.economy);
         hotkey.setPrimaryBinding(hotkeyEdit->value());
         settings.startMode = static_cast<StartMode>(mode->currentIndex());
+        settings.economy = quality->currentIndex() == 1;
         settings.cursor = cursor->isChecked();
         settings.rememberRegion = remember->isChecked();
         settings.foregroundSafety = safety->isChecked();
@@ -126,7 +136,7 @@ SettingsWindow::SettingsWindow(Settings &settings, HotkeyManager &hotkey, QWidge
             obs_data_release(settings.data);
             settings.data = previousData;
             std::tie(settings.startMode, settings.cursor, settings.rememberRegion,
-                     settings.foregroundSafety, settings.indicator, settings.restoreScene) = previous;
+                     settings.foregroundSafety, settings.indicator, settings.restoreScene, settings.economy) = previous;
             hotkey.load(settings.data);
             QMessageBox::warning(this, text("Title"), text("SettingsSaveFailed"));
             return;

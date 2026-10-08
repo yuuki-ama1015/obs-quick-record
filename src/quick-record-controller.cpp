@@ -40,6 +40,7 @@ QuickRecordController::QuickRecordController() : launcherSession([this] {
         if (readiness == CaptureReadiness::Failed) { finish(); notify("StartFailed"); return; }
         if (readiness != CaptureReadiness::Ready) return;
         prepareTimer.stop();
+        if (!recordingQuality.apply(settings.economy)) { finish(); notify("QualityUnavailable"); return; }
         requested = true;
         if (!capture.start()) { finish(); notify("StartFailed"); return; }
         blog(LOG_INFO, "OBS Quick Record: recording requested");
@@ -226,6 +227,7 @@ void QuickRecordController::finish()
     overlay.hide();
     indicator.stop();
     capture.cleanup(settings.restoreScene);
+    recordingQuality.restore();
     requested = false;
     pending = false;
     state = QuickRecordState::Idle;

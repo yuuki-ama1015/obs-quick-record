@@ -5,6 +5,7 @@ inline QString text(const char *key) { return QString::fromUtf8(obs_module_text(
 enum class StartMode { Confirm, Immediate, Countdown };
 struct Settings {
     StartMode startMode = StartMode::Confirm;
+    bool economy = false;
     bool cursor = true, rememberRegion = true, foregroundSafety = true, indicator = true, restoreScene = true;
     obs_data_t *data = nullptr;
     Settings();
