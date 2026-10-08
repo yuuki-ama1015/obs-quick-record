@@ -13,7 +13,7 @@ Audited OBS 32.2.2 commit `ba2f32bdf791005443988a4955e963663e16b1ed` and obs-aut
 
 ## Constraints
 
-Canvas/output/encoders/audio devices are unchanged. Program scene switching necessarily affects streaming, virtual camera and replay buffer; reject new Quick Record sessions while those outputs are active. Audio follows OBS global audio settings; sources exclusive to the previous scene become inactive. Scene filters on the previous scene do not transfer to the temporary scene.
+By default, canvas/output/encoders/audio devices are unchanged. The optional capacity mode described below temporarily limits the recording encoder only. Program scene switching necessarily affects streaming, virtual camera and replay buffer; reject new Quick Record sessions while those outputs are active. Audio follows OBS global audio settings; sources exclusive to the previous scene become inactive. Scene filters on the previous scene do not transfer to the temporary scene.
 
 Recheck other output activity on each capture preparation timer tick, before advancing readiness or requesting recording. If another output starts while capture is warming or a transition is pending, cancel preparation, restore/clean up the temporary capture, and leave the other output running. This is a GUI-thread state check, not an atomic reservation of OBS output ownership.
 
@@ -71,3 +71,5 @@ Audited official OBS 32.2.2, commit `ba2f32bdf791005443988a4955e963663e16b1ed`:
 - [obs-output.c](https://github.com/obsproject/obs-studio/blob/32.2.2/libobs/obs-output.c): output preferred-size overrides persist and can be reapplied to an attached encoder. Do not use `obs_output_set_preferred_size` because its raw previous value cannot be safely restored.
 
 The feature does not reserve OBS outputs against arbitrary concurrent reconfiguration by other plugins. File-size savings depend on content/codec; unchanged audio remains a fixed contributor. Native OBS recordings after restoration retain their previous dimensions and frame rate. This does not repair selection-to-canvas stretching already present in Quick Record.
+
+Observed with OBS 32.2.2 H.264/MKV: packet timestamps advance by about 1/30 s, but ffprobe r_frame_rate/avg_frame_rate still report the global 60 fps. [obs-ffmpeg-mux.c](https://github.com/obsproject/obs-studio/blob/32.2.2/plugins/obs-ffmpeg/obs-ffmpeg-mux.c), `add_video_encoder_params`, takes metadata fps from `obs_get_video`, not the recording encoder's divisor-adjusted video. Preserve the standard OBS output and document this metadata limitation instead of changing OBS or postprocessing user recordings. Other output formats require their own verification.
