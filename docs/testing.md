@@ -478,3 +478,9 @@ Windows 11（build 26200、論理CPU 12）で、旧導入版とv0.1.1の起動�
 更新後、DLL/起動アシストEXE/日英localeの4ファイルが配布ZIPと一致。起動アシストは通常権限（TokenElevation=0）で動作し、自動起動リンクのファイルハッシュと配置先を保持した。更新前にはQuick Recordのsettings.jsonが未作成で、更新処理ではこの状態を変更しなかった。
 
 実機ログでlauncher request received→selector opened→plugin unloaded→Freeing OBS context data→Number of memory leaks: 0を確認し、その後のobs64.exe不在と起動アシスト1プロセスの常駐を確認した。ユーザーからは「選択画面は出たがOBSが終了しない」という回答もあり、観測した画面やタイミングの特定は未完了。通知領域に起動アシストが残ることとOBS本体の稼働を区別する説明を追加した。症状の原因をアイコンの取り違えと断定せず、録画・Auto Stop停止・再呼び出しの全実キー試験も合格とは扱わない。
+
+## 2026-10-08 容量優先モードの検証
+
+最大720p・30fpsの任意モードを追加。recording-quality-checkは実libobsのエンコーダを使用し、初回録画前（media未接続）・通常接続後の変更と復元、縦横比と非拡大、分数fps、元のフレーム間引き保持、設定ファイルへの保存/再読込、非対応出力モード、稼働中の出力、既存拡縮と別エンコーダを検証する。GPUエンコードや実録画はこのテストに含まない。hotkey-checkへ画質の保存/キャンセル/保存失敗時の復元、controller-checkへ適用失敗時の開始拒否と一時キャプチャ解放を追加した。
+
+ローカルのinstaller-checkは成功。新しいC++コードのビルド・CTestと、実録画ファイルの寸法/fps/容量比較・通常録画への復帰は未確認。PC導入済みDLLと公開Releaseは変更していない。
