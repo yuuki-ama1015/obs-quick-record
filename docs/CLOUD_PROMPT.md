@@ -2,6 +2,8 @@
 
 以下を新しい開発作業へ渡してください。ローカルの引き継ぎファイルや以前の会話は不要です。
 
+容量優先モードの続きを行う場合は、下記のmainをfeat/recording-economyに読み替えてください。Windows CIとNVENC/MKVの実録画検証まで完了し、main・Release・PC常設版への反映はまだ行っていません。
+
 ```text
 https://github.com/yuuki-ama1015/obs-quick-record のmainから開発を再開してください。
 まずAGENTS.md、README.md、docs/CLOUD_HANDOFF.md、docs/design.md、docs/testing.mdの末尾を読んで、最新コード・Release・実機で未確認の条件を確認してください。
