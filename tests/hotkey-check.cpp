@@ -10,6 +10,11 @@
 #include <QMessageBox>
 #include <QTimer>
 #include <QComboBox>
+#include <QCheckBox>
+#include <QLabel>
+#include <QScrollArea>
+#include <QScrollBar>
+#include <QToolButton>
 #include <cassert>
 #include <iostream>
 
@@ -38,7 +43,9 @@ int main(int argc, char **argv)
 
         SettingsWindow absent(settings, hotkey);
         absent.show();
-        assert(absent.findChild<QPushButton *>("openAutoStop")->isHidden());
+        assert(!absent.findChild<QPushButton *>("openAutoStop")->isVisible());
+        assert(absent.findChild<QWidget *>("autoStopRow")->isHidden());
+        absent.hide();
         QMainWindow mainWindow;
         auto *dock = new QDockWidget(&mainWindow);
         dock->setObjectName("obs-auto-stop-dock");
@@ -58,9 +65,78 @@ int main(int argc, char **argv)
         open->click();
         assert(!mainWindow.isVisible() && dock->isVisible());
         delete dock;
-        assert(open->isHidden());
+        assert(!open->isVisible() && linked.findChild<QWidget *>("autoStopRow")->isHidden());
         open->click();
-        assert(open->isHidden());
+        assert(!open->isVisible());
+        linked.hide();
+
+        {
+            SettingsWindow dialog(settings, hotkey);
+            dialog.show();
+            dialog.activateWindow();
+            auto *save = dialog.findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save);
+            auto *status = dialog.findChild<QLabel *>("settingsStatus");
+            assert(!save->isEnabled() && status->text() == "SettingsUnchanged");
+            // Every draft control enables Save, and reverting it clears the dirty state.
+            for (auto *box : dialog.findChildren<QCheckBox *>()) {
+                const bool checked = box->isChecked();
+                box->setChecked(!checked);
+                assert(save->isEnabled() && status->text() == "SettingsUnsaved");
+                box->setChecked(checked);
+                assert(!save->isEnabled());
+            }
+            auto *mode = dialog.findChild<QComboBox *>("startMode");
+            mode->setCurrentIndex(1);
+            assert(save->isEnabled() && dialog.findChild<QLabel *>("startModeHint")->text() == "ImmediateHint");
+            mode->setCurrentIndex(2);
+            assert(dialog.findChild<QLabel *>("startModeHint")->text() == "CountdownHint");
+            mode->setCurrentIndex(0);
+            assert(!save->isEnabled());
+            auto *quality = dialog.findChild<QComboBox *>("recordingQuality");
+            quality->setCurrentIndex(1);
+            assert(save->isEnabled() && dialog.findChild<QLabel *>("recordingQualityHint")->text() == "QualityEconomyHint");
+            quality->setCurrentIndex(0);
+            assert(!save->isEnabled());
+
+            auto *field = dialog.findChild<QLineEdit *>();
+            mode->setFocus();
+            QApplication::processEvents();
+            field->setFocus();
+            QApplication::processEvents();
+            QKeyEvent modifier(QEvent::KeyPress, Qt::Key_Control, Qt::ControlModifier, 0, 0x11, 0);
+            QApplication::sendEvent(field, &modifier);
+            assert(!save->isEnabled());
+            QKeyEvent key(QEvent::KeyPress, Qt::Key_K, Qt::ControlModifier | Qt::ShiftModifier, 0, 0x4B, 0);
+            QApplication::sendEvent(field, &key);
+            assert(save->isEnabled());
+            expect(hotkey, INTERACT_ALT_KEY, OBS_KEY_R); // Still a draft.
+            QKeyEvent escape(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier, 0, 0x1B, 0);
+            QApplication::sendEvent(field, &escape);
+            assert(dialog.isVisible() && !save->isEnabled());
+            field->setFocus();
+            QApplication::processEvents();
+            QKeyEvent tab(QEvent::KeyPress, Qt::Key_Tab, Qt::NoModifier, 0, 0x09, 0);
+            QApplication::sendEvent(field, &tab);
+            assert(!field->hasFocus() && !save->isEnabled());
+
+            // Details start collapsed. In a short window only the body scrolls.
+            auto *scroll = dialog.findChild<QScrollArea *>("settingsScroll");
+            for (const char *key : {"QualityHelp", "RestoreHelp"})
+                assert(dialog.findChild<QLabel *>(key)->isHidden());
+            dialog.findChild<QToolButton *>("QualityDetails")->click();
+            dialog.findChild<QToolButton *>("RestoreDetails")->click();
+            assert(dialog.findChild<QLabel *>("QualityHelp")->isVisible());
+            assert(dialog.findChild<QLabel *>("RestoreHelp")->isVisible());
+            dialog.resize(540, 420);
+            QApplication::processEvents();
+            assert(scroll->verticalScrollBar()->maximum() > 0);
+            const auto savePosition = save->mapTo(&dialog, QPoint(0, 0));
+            scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
+            QApplication::processEvents();
+            assert(save->mapTo(&dialog, QPoint(0, 0)) == savePosition);
+            assert(dialog.rect().contains(QRect(savePosition, save->size())));
+            assert(!save->isEnabled()); // Expanding help is not a setting change.
+        }
 
         auto other = obs_hotkey_register_frontend("test.other", "Other", [](void *, obs_hotkey_id, obs_hotkey_t *, bool) {}, nullptr);
         obs_key_combination_t otherKey{INTERACT_CONTROL_KEY, OBS_KEY_O};
@@ -126,5 +202,5 @@ int main(int argc, char **argv)
         obs_hotkey_unregister(other);
     }
     obs_shutdown();
-    std::cout << "Alt+R default, edit, cancel, save/reload and unrelated binding passed\n";
+    std::cout << "Settings drafts, hints, scrolling, Auto Stop, hotkey edit/cancel and save/rollback passed\n";
 }
