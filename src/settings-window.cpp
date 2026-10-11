@@ -193,13 +193,13 @@ SettingsWindow::SettingsWindow(Settings &settings, HotkeyManager &hotkey, QWidge
     autoStop->setObjectName("openAutoStop");
     const QPointer<QDockWidget> dock = obsWindow
         ? obsWindow->findChild<QDockWidget *>("obs-auto-stop-dock") : nullptr;
-    autoStopRow->setVisible(!dock.isNull());
     autoStop->setToolTip(text("AutoStopHelp"));
     autoStopLayout->addWidget(autoStop);
     auto *autoStopHint = new QLabel(text("AutoStopHint"));
     autoStopHint->setWordWrap(true);
     autoStopLayout->addWidget(autoStopHint);
     layout->addWidget(autoStopRow);
+    autoStopRow->setVisible(!dock.isNull());
     layout->addStretch();
     if (dock) connect(dock, &QObject::destroyed, autoStopRow, &QWidget::hide);
     connect(autoStop, &QPushButton::clicked, this, [dock, autoStopRow] {
