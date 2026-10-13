@@ -7,6 +7,7 @@
 #include <QLineEdit>
 #include <QVBoxLayout>
 #include <QDockWidget>
+#include <QGroupBox>
 #include <QPointer>
 #include <QPushButton>
 #include <QMessageBox>
@@ -180,26 +181,30 @@ SettingsWindow::SettingsWindow(Settings &settings, HotkeyManager &hotkey, QWidge
     label("SafetyHint");
     auto *indicator = check("Indicator", settings.indicator);
     auto *restore = check("Restore", settings.restoreScene);
+    label("RestoreHint");
     details("RestoreDetails", "RestoreHelp");
     // Optional UI integration only: OBS owns this dock and Auto Stop owns its settings.
-    auto *autoStopRow = new QWidget;
+    auto *autoStopRow = new QGroupBox(text("AutoStopSection"));
     autoStopRow->setObjectName("autoStopRow");
     auto *autoStopLayout = new QVBoxLayout(autoStopRow);
-    autoStopLayout->setContentsMargins(0, 12, 0, 0);
-    auto *autoStopLine = new QFrame;
-    autoStopLine->setFrameShape(QFrame::HLine);
-    autoStopLayout->addWidget(autoStopLine);
+    auto *autoStopHint = new QLabel(text("AutoStopHint"));
+    autoStopHint->setWordWrap(true);
+    autoStopLayout->addWidget(autoStopHint);
     auto *autoStop = new QPushButton(text("OpenAutoStop"));
     autoStop->setObjectName("openAutoStop");
+    auto autoStopFont = autoStop->font();
+    autoStopFont.setBold(true);
+    autoStop->setFont(autoStopFont);
+    autoStop->setMinimumHeight(autoStop->fontMetrics().height() + 20);
+    autoStop->setAutoDefault(false);
     const QPointer<QDockWidget> dock = obsWindow
         ? obsWindow->findChild<QDockWidget *>("obs-auto-stop-dock") : nullptr;
     autoStop->setToolTip(text("AutoStopHelp"));
     autoStopLayout->addWidget(autoStop);
-    auto *autoStopHint = new QLabel(text("AutoStopHint"));
-    autoStopHint->setWordWrap(true);
-    autoStopLayout->addWidget(autoStopHint);
-    layout->addWidget(autoStopRow);
+    // Keep the auto-stop entry visible above the scrolling settings.
+    outer->insertWidget(0, autoStopRow);
     autoStopRow->setVisible(!dock.isNull());
+    setTabOrder(autoStop, hotkeyEdit);
     layout->addStretch();
     if (dock) connect(dock, &QObject::destroyed, autoStopRow, &QWidget::hide);
     connect(autoStop, &QPushButton::clicked, this, [dock, autoStopRow] {

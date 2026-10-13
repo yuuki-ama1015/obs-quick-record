@@ -56,6 +56,17 @@ int main(int argc, char **argv)
         linked.show();
         auto *open = linked.findChild<QPushButton *>("openAutoStop");
         assert(open && open->isVisible());
+        // Auto Stop remains reachable while the rest of a short settings window scrolls.
+        linked.resize(540, 420);
+        QApplication::processEvents();
+        auto *linkedScroll = linked.findChild<QScrollArea *>("settingsScroll");
+        const auto openPosition = open->mapTo(&linked, QPoint(0, 0));
+        assert(openPosition.y() + open->height() <= linkedScroll->mapTo(&linked, QPoint(0, 0)).y());
+        assert(linkedScroll->verticalScrollBar()->maximum() > 0);
+        linkedScroll->verticalScrollBar()->setValue(linkedScroll->verticalScrollBar()->maximum());
+        QApplication::processEvents();
+        assert(open->mapTo(&linked, QPoint(0, 0)) == openPosition);
+        assert(linked.rect().contains(QRect(openPosition, open->size())));
         open->click();
         assert(mainWindow.isMinimized());
         assert(dock->isFloating() && dock->isVisible() && !dock->isMinimized());
