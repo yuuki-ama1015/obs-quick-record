@@ -77,10 +77,11 @@ int main(int argc, char **argv)
         QObject::connect(open, &QPushButton::clicked, &linked, [&] { ++opened; });
         const int beforeSave = saveCalls;
         for (const auto key : {Qt::Key_Return, Qt::Key_Enter}) {
-            linked.activateWindow();
+            QApplication::processEvents();
+            // The minimal platform has no window manager to activate the dialog.
+            QApplication::setActiveWindow(&linked);
             linkedSave->setDefault(true);
             open->setFocus();
-            QApplication::processEvents();
             assert(open->hasFocus());
             const int beforeOpen = opened;
             QKeyEvent enter(QEvent::KeyPress, key, Qt::NoModifier);
