@@ -529,3 +529,7 @@ ZIP内のDLL・起動アシスト・日英locale・説明書・一括導入cmd�
 作業ブランチfeat/settings-autostop、実装7300b8d。Auto Stop設定をスクロール領域の外の最上部へ移し、専用の見出しと大きめの太字ボタンを設けた。未導入・ドック破棄時は枠全体を非表示にする。「録画後、OBSの表示を元に戻す」は通常ONでよい理由を常時表示し、OFFが必要になる場面とOBS自動終了とは別の設定であることを詳細へ記載。録画処理・保存形式は変更していない。
 
 Windows CI [38341013935](https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/38341013935)でMSVCビルド・CTest全9件成功（64.22秒）。540×420の設定画面をスクロールしてもAuto Stopボタンの位置が変わらず、画面内にあることを既存hotkey-checkで検証した。既存のドック独立表示・未導入/破棄時非表示・保存/キャンセルも成功。日英locale各56キー一致、生成ZIP内localeとソースのハッシュ一致を確認。変更後の実OBSテーマでの目視確認とPCへの更新は未実施。main・Releaseは0.1.3のまま。
+
+レビュー修正85c36ecでAuto StopボタンのautoDefault無効化を削除し、フォーカス中のEnterが保存へ渡らないようにした。未保存の開始方式変更がある状態でReturn・テンキーEnterを送り、Auto Stopドックが開くこと、設定画面と未保存の変更が維持されること、Settings::saveが呼ばれないこと、OBS本体が最小化されたままであることを検証する。シーン復元の常時説明は日英とも「ONの場合」と明記した。
+
+初回CI 38358663582は新テストのフォーカス確認で失敗。minimalプラットフォームにはウィンドウマネージャーがないため、f3fdfffでイベント処理後にQApplication::setActiveWindowを明示した。Windows CI [38359097241](https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/38359097241)でビルド・全9テスト成功（64.08秒）、生成ZIP内の日英localeとソースのハッシュ一致を確認。これはQtイベントを使う隔離テストで、実OBSテーマ・物理キー・高DPIの確認は未実施。修正は作業ブランチにあり、main・Release・PCには反映していない。
