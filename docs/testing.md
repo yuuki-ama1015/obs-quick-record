@@ -533,3 +533,11 @@ Windows CI [38341013935](https://github.com/yuuki-ama1015/obs-quick-record/actio
 レビュー修正85c36ecでAuto StopボタンのautoDefault無効化を削除し、フォーカス中のEnterが保存へ渡らないようにした。未保存の開始方式変更がある状態でReturn・テンキーEnterを送り、Auto Stopドックが開くこと、設定画面と未保存の変更が維持されること、Settings::saveが呼ばれないこと、OBS本体が最小化されたままであることを検証する。シーン復元の常時説明は日英とも「ONの場合」と明記した。
 
 初回CI 38358663582は新テストのフォーカス確認で失敗。minimalプラットフォームにはウィンドウマネージャーがないため、f3fdfffでイベント処理後にQApplication::setActiveWindowを明示した。Windows CI [38359097241](https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/38359097241)でビルド・全9テスト成功（64.08秒）、生成ZIP内の日英localeとソースのハッシュ一致を確認。これはQtイベントを使う隔離テストで、実OBSテーマ・物理キー・高DPIの確認は未実施。修正は作業ブランチにあり、main・Release・PCには反映していない。
+
+### 2026-10-13 ショートカットの明示的な編集
+
+feat/settings-autostopの4becb1bでショートカット欄に「変更」を追加した。フォーカスだけではキーを受け付けず、変更ボタンから入力待ちに入り、1回の有効な組み合わせを受け付けると固定表示へ戻る。入力待ち中のEsc・Tab・別項目への移動は、それまでの候補を維持して入力を取り消す。実際のOBSのキー変更は従来どおり保存時だけ行う。録画・画質等の他の設定に編集開始ボタンは設けず、「保存して対象選択へ進む」機能も追加していない。
+
+既存hotkey-checkで、変更前の入力とEnterで候補が変わらないこと、入力待ち表示だけでは未保存にならないこと、修飾キーだけの入力、1回入力後の固定、再編集の取消、フォーカス移動後の固定、元のキーへの復帰を検証。変更ボタンにフォーカスしてReturn・テンキーEnterを押すと、未保存の他設定が保存されず入力待ちになることも確認した。保存/キャンセル・保存失敗時の復元・Auto Stopボタンの既存回帰テストを維持している。
+
+Windows CI [38363821659](https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/38363821659)でMSVCビルド・CTest全9件成功（63.71秒）。日英locale各58キー一致、CIのZIP内の日英locale・使い方.txtとソースのSHA-256一致を確認。ZIPのSHA-256は58877586DEFD20D7A7E95FD264932C07ECF7935D06A91B47E33C9F3AF89B9E69。この検証記録追記前のCI成果物であり、Releaseとしては公開していない。実OBS内の目視・物理キー・高DPI試験は未実施。main・Release・PCは0.1.3のまま。
