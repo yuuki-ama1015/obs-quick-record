@@ -23,7 +23,8 @@ extern "C" const char *obs_module_text(const char *key) { return key; }
 Settings::Settings() : data(obs_data_create()) {}
 Settings::~Settings() { obs_data_release(data); }
 static bool saveOK = true;
-bool Settings::save() { return saveOK; }
+static int saveCalls = 0;
+bool Settings::save() { ++saveCalls; return saveOK; }
 
 static void expect(HotkeyManager &hotkey, uint32_t modifiers, obs_key_t key)
 {
@@ -67,6 +68,30 @@ int main(int argc, char **argv)
         QApplication::processEvents();
         assert(open->mapTo(&linked, QPoint(0, 0)) == openPosition);
         assert(linked.rect().contains(QRect(openPosition, open->size())));
+        // Enter on Auto Stop must open its dock, even with an unsaved draft and Save as default.
+        auto *linkedMode = linked.findChild<QComboBox *>("startMode");
+        auto *linkedSave = linked.findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save);
+        linkedMode->setCurrentIndex(1);
+        assert(linkedSave->isEnabled());
+        int opened = 0;
+        QObject::connect(open, &QPushButton::clicked, &linked, [&] { ++opened; });
+        const int beforeSave = saveCalls;
+        for (const auto key : {Qt::Key_Return, Qt::Key_Enter}) {
+            linked.activateWindow();
+            linkedSave->setDefault(true);
+            open->setFocus();
+            QApplication::processEvents();
+            assert(open->hasFocus());
+            const int beforeOpen = opened;
+            QKeyEvent enter(QEvent::KeyPress, key, Qt::NoModifier);
+            QApplication::sendEvent(open, &enter);
+            assert(opened == beforeOpen + 1 && dock->isVisible());
+            assert(linked.isVisible() && saveCalls == beforeSave);
+            assert(settings.startMode == StartMode::Confirm && linkedSave->isEnabled());
+            assert(mainWindow.isMinimized());
+            dock->close();
+        }
+        linkedMode->setCurrentIndex(0);
         open->click();
         assert(mainWindow.isMinimized());
         assert(dock->isFloating() && dock->isVisible() && !dock->isMinimized());

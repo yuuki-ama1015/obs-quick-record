@@ -196,7 +196,6 @@ SettingsWindow::SettingsWindow(Settings &settings, HotkeyManager &hotkey, QWidge
     autoStopFont.setBold(true);
     autoStop->setFont(autoStopFont);
     autoStop->setMinimumHeight(autoStop->fontMetrics().height() + 20);
-    autoStop->setAutoDefault(false);
     const QPointer<QDockWidget> dock = obsWindow
         ? obsWindow->findChild<QDockWidget *>("obs-auto-stop-dock") : nullptr;
     autoStop->setToolTip(text("AutoStopHelp"));
