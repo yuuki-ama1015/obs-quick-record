@@ -541,3 +541,7 @@ feat/settings-autostopの4becb1bでショートカット欄に「変更」を追
 既存hotkey-checkで、変更前の入力とEnterで候補が変わらないこと、入力待ち表示だけでは未保存にならないこと、修飾キーだけの入力、1回入力後の固定、再編集の取消、フォーカス移動後の固定、元のキーへの復帰を検証。変更ボタンにフォーカスしてReturn・テンキーEnterを押すと、未保存の他設定が保存されず入力待ちになることも確認した。保存/キャンセル・保存失敗時の復元・Auto Stopボタンの既存回帰テストを維持している。
 
 Windows CI [38363821659](https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/38363821659)でMSVCビルド・CTest全9件成功（63.71秒）。日英locale各58キー一致、CIのZIP内の日英locale・使い方.txtとソースのSHA-256一致を確認。ZIPのSHA-256は58877586DEFD20D7A7E95FD264932C07ECF7935D06A91B47E33C9F3AF89B9E69。この検証記録追記前のCI成果物であり、Releaseとしては公開していない。実OBS内の目視・物理キー・高DPI試験は未実施。main・Release・PCは0.1.3のまま。
+
+### 2026-10-13 0.1.4公開
+
+6ac6bb9をmainへ統合し、v0.1.4を公開。Windows CI [38399368889](https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/38399368889)でビルド・全9テスト成功（64.13秒）。CIのZIPをobs-quick-record.zipとして公開し、再取得のSHA-256一致を確認した（29EDF16324088BF4BB783BE8E8068F7116C1D99806B4DC291D739FB4CFD2865A）。旧Releaseは削除し、最新版1件のみ。PC更新は起動アシストの通常終了待ち。実OBSでの目視・物理キー・高DPIの未確認項目は維持する。
