@@ -36,23 +36,37 @@ public:
         setToolTip(::text("HotkeyHelp"));
     }
     obs_key_combination_t value() const { return binding; }
-protected:
-    void focusInEvent(QFocusEvent *event) override
+    void beginCapture()
     {
-        beforeEdit = binding;
-        QLineEdit::focusInEvent(event);
+        setFocus();
+        capturing = true;
+        setText(::text("HotkeyListening"));
+    }
+protected:
+    void focusOutEvent(QFocusEvent *event) override
+    {
+        finishCapture();
+        QLineEdit::focusOutEvent(event);
     }
     void keyPressEvent(QKeyEvent *event) override
     {
+        if (!capturing) {
+            // Enter in the display field must not activate the default Change button.
+            if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
+                event->accept();
+                return;
+            }
+            QLineEdit::keyPressEvent(event);
+            return;
+        }
         event->accept();
         if (event->isAutoRepeat()) return;
         switch (event->key()) {
         case Qt::Key_Escape:
-            binding = beforeEdit;
-            setText(bindingText(binding));
-            clearFocus();
+            finishCapture();
             return;
         case Qt::Key_Tab: case Qt::Key_Backtab:
+            finishCapture();
             QLineEdit::keyPressEvent(event);
             return;
         case Qt::Key_Shift: case Qt::Key_Control: case Qt::Key_Alt: case Qt::Key_Meta:
@@ -67,12 +81,17 @@ protected:
         if (event->modifiers().testFlag(Qt::AltModifier)) modifiers |= INTERACT_ALT_KEY;
         if (event->modifiers().testFlag(Qt::MetaModifier)) modifiers |= INTERACT_COMMAND_KEY;
         binding = {modifiers, key};
-        setText(bindingText(binding));
-        event->accept();
+        finishCapture();
     }
 private:
+    void finishCapture()
+    {
+        if (!capturing) return;
+        capturing = false;
+        setText(bindingText(binding));
+    }
     obs_key_combination_t binding;
-    obs_key_combination_t beforeEdit = binding;
+    bool capturing = false;
 };
 
 SettingsWindow::SettingsWindow(Settings &settings, HotkeyManager &hotkey, QWidget *obsWindow) : QDialog(nullptr)
@@ -133,7 +152,13 @@ SettingsWindow::SettingsWindow(Settings &settings, HotkeyManager &hotkey, QWidge
     auto *hotkeyEdit = new HotkeyEdit(hotkey.primaryBinding());
     hotkeyEdit->setObjectName("recordingHotkey");
     hotkeyLabel->setBuddy(hotkeyEdit);
-    layout->addWidget(hotkeyEdit);
+    auto *hotkeyRow = new QHBoxLayout;
+    hotkeyRow->addWidget(hotkeyEdit, 1);
+    auto *changeHotkey = new QPushButton(text("ChangeHotkey"));
+    changeHotkey->setObjectName("changeHotkey");
+    hotkeyRow->addWidget(changeHotkey);
+    layout->addLayout(hotkeyRow);
+    connect(changeHotkey, &QPushButton::clicked, hotkeyEdit, &HotkeyEdit::beginCapture);
     label("ShortcutHint");
     section("RecordingSection");
     auto *modeLabel = label("StartMode");

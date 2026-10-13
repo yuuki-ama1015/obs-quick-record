@@ -110,7 +110,8 @@ int main(int argc, char **argv)
         {
             SettingsWindow dialog(settings, hotkey);
             dialog.show();
-            dialog.activateWindow();
+            QApplication::processEvents();
+            QApplication::setActiveWindow(&dialog);
             auto *save = dialog.findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save);
             auto *status = dialog.findChild<QLabel *>("settingsStatus");
             assert(!save->isEnabled() && status->text() == "SettingsUnchanged");
@@ -136,25 +137,76 @@ int main(int argc, char **argv)
             assert(!save->isEnabled());
 
             auto *field = dialog.findChild<QLineEdit *>();
-            mode->setFocus();
-            QApplication::processEvents();
+            auto *change = dialog.findChild<QPushButton *>("changeHotkey");
+            assert(change && change->isVisible());
+            const auto originalText = field->text();
             field->setFocus();
-            QApplication::processEvents();
+            assert(field->hasFocus());
             QKeyEvent modifier(QEvent::KeyPress, Qt::Key_Control, Qt::ControlModifier, 0, 0x11, 0);
-            QApplication::sendEvent(field, &modifier);
-            assert(!save->isEnabled());
             QKeyEvent key(QEvent::KeyPress, Qt::Key_K, Qt::ControlModifier | Qt::ShiftModifier, 0, 0x4B, 0);
-            QApplication::sendEvent(field, &key);
-            assert(save->isEnabled());
-            expect(hotkey, INTERACT_ALT_KEY, OBS_KEY_R); // Still a draft.
             QKeyEvent escape(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier, 0, 0x1B, 0);
-            QApplication::sendEvent(field, &escape);
-            assert(dialog.isVisible() && !save->isEnabled());
-            field->setFocus();
-            QApplication::processEvents();
             QKeyEvent tab(QEvent::KeyPress, Qt::Key_Tab, Qt::NoModifier, 0, 0x09, 0);
+            // Focus alone cannot arm capture, even when Change is the default button.
+            change->setDefault(true);
+            for (const auto keyCode : {Qt::Key_Return, Qt::Key_Enter}) {
+                QKeyEvent enter(QEvent::KeyPress, keyCode, Qt::NoModifier);
+                QApplication::sendEvent(field, &enter);
+                QApplication::sendEvent(field, &key);
+                assert(field->text() == originalText && !save->isEnabled());
+            }
+            change->click();
+            assert(field->text() == "HotkeyListening" && !save->isEnabled());
+            QApplication::sendEvent(field, &modifier);
+            assert(field->text() == "HotkeyListening" && !save->isEnabled());
+            QApplication::sendEvent(field, &escape);
+            assert(dialog.isVisible() && field->text() == originalText && !save->isEnabled());
+            QApplication::sendEvent(field, &key);
+            assert(field->text() == originalText);
+
+            // Leaving the field cancels capture, and focusing it again does not rearm it.
+            change->click();
+            mode->setFocus();
+            field->setFocus();
+            QApplication::sendEvent(field, &key);
+            assert(field->text() == originalText && !save->isEnabled());
+            change->click();
             QApplication::sendEvent(field, &tab);
-            assert(!field->hasFocus() && !save->isEnabled());
+            assert(!field->hasFocus() && field->text() == originalText && !save->isEnabled());
+            field->setFocus();
+            QApplication::sendEvent(field, &key);
+            assert(field->text() == originalText);
+
+            // Capture exactly one combination; later keys cannot overwrite its unsaved draft.
+            change->click();
+            QApplication::sendEvent(field, &key);
+            const auto draftText = field->text();
+            assert(draftText != originalText && draftText != "HotkeyListening" && save->isEnabled());
+            expect(hotkey, INTERACT_ALT_KEY, OBS_KEY_R); // Still a draft.
+            QKeyEvent originalKey(QEvent::KeyPress, Qt::Key_R, Qt::AltModifier, 0, 0x52, 0);
+            QApplication::sendEvent(field, &originalKey);
+            assert(field->text() == draftText && save->isEnabled());
+            change->click();
+            QApplication::sendEvent(field, &escape);
+            assert(dialog.isVisible() && field->text() == draftText && save->isEnabled());
+            change->click();
+            QApplication::sendEvent(field, &originalKey);
+            assert(field->text() == originalText && !save->isEnabled());
+
+            // Enter on Change must arm input, not save other unsaved settings.
+            mode->setCurrentIndex(1);
+            const int beforeChangeSave = saveCalls;
+            for (const auto keyCode : {Qt::Key_Return, Qt::Key_Enter}) {
+                save->setDefault(true);
+                change->setFocus();
+                assert(change->hasFocus());
+                QKeyEvent enter(QEvent::KeyPress, keyCode, Qt::NoModifier);
+                QApplication::sendEvent(change, &enter);
+                assert(field->hasFocus() && field->text() == "HotkeyListening");
+                assert(dialog.isVisible() && saveCalls == beforeChangeSave);
+                assert(settings.startMode == StartMode::Confirm);
+                QApplication::sendEvent(field, &escape);
+            }
+            mode->setCurrentIndex(0);
 
             // Details start collapsed. In a short window only the body scrolls.
             auto *scroll = dialog.findChild<QScrollArea *>("settingsScroll");
@@ -184,6 +236,7 @@ int main(int argc, char **argv)
             dialog.findChild<QComboBox *>("recordingQuality")->setCurrentIndex(1);
             auto *field = dialog.findChild<QLineEdit *>();
             assert(field);
+            dialog.findChild<QPushButton *>("changeHotkey")->click();
             // A Windows native VK is required by the same conversion OBS uses.
             QKeyEvent key(QEvent::KeyPress, Qt::Key_R, Qt::ControlModifier | Qt::ShiftModifier, 0, 0x52, 0);
             QApplication::sendEvent(field, &key);
@@ -200,6 +253,7 @@ int main(int argc, char **argv)
             dialog.show();
             dialog.findChild<QComboBox *>()->setCurrentIndex(2);
             dialog.findChild<QComboBox *>("recordingQuality")->setCurrentIndex(0);
+            dialog.findChild<QPushButton *>("changeHotkey")->click();
             QKeyEvent key(QEvent::KeyPress, Qt::Key_O, Qt::AltModifier, 0, 0x4F, 0);
             QApplication::sendEvent(dialog.findChild<QLineEdit *>(), &key);
             saveOK = false;
