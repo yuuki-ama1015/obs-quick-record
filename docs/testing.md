@@ -544,4 +544,6 @@ Windows CI [38363821659](https://github.com/yuuki-ama1015/obs-quick-record/actio
 
 ### 2026-10-13 0.1.4公開
 
-6ac6bb9をmainへ統合し、v0.1.4を公開。Windows CI [38399368889](https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/38399368889)でビルド・全9テスト成功（64.13秒）。CIのZIPをobs-quick-record.zipとして公開し、再取得のSHA-256一致を確認した（29EDF16324088BF4BB783BE8E8068F7116C1D99806B4DC291D739FB4CFD2865A）。旧Releaseは削除し、最新版1件のみ。PC更新は起動アシストの通常終了待ち。実OBSでの目視・物理キー・高DPIの未確認項目は維持する。
+6ac6bb9をmainへ統合し、v0.1.4を公開。Windows CI [38399368889](https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/38399368889)でビルド・全9テスト成功（64.13秒）。CIのZIPをobs-quick-record.zipとして公開し、再取得のSHA-256一致を確認した（29EDF16324088BF4BB783BE8E8068F7116C1D99806B4DC291D739FB4CFD2865A）。旧Releaseは削除し、最新版1件のみ。実OBSでの目視・物理キー・高DPIの未確認項目は維持する。
+
+2026-10-14、起動アシストの通常終了後に正規一括インストーラーでPCを更新し、成功終了を確認。導入済みDLL・起動アシスト・日英localeのSHA-256は公開ZIPと一致。更新直前のQuick Record設定とOBS録画プロファイルのハッシュを保持し、Startupが通常配置先のEXEを引数なしで直接参照すること、起動アシストの稼働を確認した。制限環境のプロセス・配置先表示は実環境と異なるため、この確認は実環境アクセスで行った。今回の導入確認ではOBSを起動していない。
