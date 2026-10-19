@@ -10,6 +10,7 @@
 #include <QPointer>
 #include <QElapsedTimer>
 #include <atomic>
+#include <memory>
 #include "launcher-session.hpp"
 #include "recording-quality.hpp"
 class QAction;
