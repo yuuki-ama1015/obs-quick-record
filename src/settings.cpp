@@ -35,9 +35,15 @@ bool Settings::save()
     obs_data_set_bool(data, "indicator", indicator);
     obs_data_set_bool(data, "restoreScene", restoreScene);
     auto path = settingsPath();
+    const QByteArray json(obs_data_get_json(data));
+    QFile current(path);
+    if (current.open(QIODevice::ReadOnly)) {
+        const bool unchanged = current.readAll() == json;
+        current.close();
+        if (unchanged) return true;
+    }
     QDir().mkpath(QFileInfo(path).absolutePath());
     QSaveFile file(path);
-    const QByteArray json(obs_data_get_json(data));
     bool ok = file.open(QIODevice::WriteOnly) && file.write(json) == json.size() && file.commit();
     if (!ok) blog(LOG_ERROR, "OBS Quick Record: settings save failed");
     return ok;

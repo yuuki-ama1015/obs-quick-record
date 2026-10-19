@@ -271,7 +271,7 @@ SettingsWindow::SettingsWindow(Settings &settings, HotkeyManager &hotkey, QWidge
         connect(box, &QCheckBox::toggled, this, updateDirty);
     updateDirty();
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    connect(buttons, &QDialogButtonBox::accepted, this, [&, hotkeyEdit, mode, quality, cursor, remember, safety, indicator, restore] {
+    connect(buttons, &QDialogButtonBox::accepted, this, [this, &settings, &hotkey, hotkeyEdit, mode, quality, cursor, remember, safety, indicator, restore] {
         hotkey.save(settings.data);
         auto *previousData = obs_data_create_from_json(obs_data_get_json(settings.data));
         const auto previous = std::make_tuple(settings.startMode, settings.cursor, settings.rememberRegion,

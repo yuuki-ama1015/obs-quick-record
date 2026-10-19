@@ -207,7 +207,7 @@ int main(int argc, char **argv)
             QuickRecordController controller;
             event(OBS_FRONTEND_EVENT_FINISHED_LOADING);
             if (mode == 6) toggle(); // User selected before the launcher request timer fired.
-            wait(650);
+            wait(50); // A pre-existing launch request is handled without waiting for the 500ms poll.
             assert(qa.visible && !QFile::exists(qa.requestPath));
             assert(request.open(QIODevice::WriteOnly)); request.write("invalid"); request.close();
             if (mode == 1 || mode == 5 || mode == 7) {

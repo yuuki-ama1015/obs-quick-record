@@ -3,6 +3,9 @@
 #include <QCoreApplication>
 #include <QEventLoop>
 #include <QTemporaryDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QDateTime>
 #include <cassert>
 #include <iostream>
 #include <util/bmem.h>
@@ -36,6 +39,29 @@ int main(int argc, char **argv)
     { Settings settings; assert(!settings.economy); settings.economy = true; assert(settings.save()); }
     { Settings settings; assert(settings.economy); settings.economy = false; assert(settings.save()); }
     { Settings settings; assert(!settings.economy); }
+    {
+        Settings settings;
+        assert(settings.save());
+        QFile file(settingsFile);
+        assert(file.open(QIODevice::ReadWrite));
+        assert(file.setFileTime(QDateTime::currentDateTime().addSecs(-120), QFileDevice::FileModificationTime));
+        file.close();
+        const auto stamp = QFileInfo(file).lastModified();
+        assert(settings.save() && QFileInfo(file).lastModified() == stamp); // No atomic rewrite of unchanged content.
+        assert(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        file.write("external change"); file.close();
+        assert(settings.save());
+        assert(file.open(QIODevice::ReadOnly));
+        assert(file.readAll() == QByteArray(obs_data_get_json(settings.data))); file.close();
+        assert(file.remove() && settings.save() && QFile::exists(settingsFile)); // Recreate a deleted file.
+        const auto originalPath = settingsFile;
+        settingsFile = temp.filePath("blocked/settings.json");
+        QFile blocked(temp.filePath("blocked")); assert(blocked.open(QIODevice::WriteOnly)); blocked.close();
+        assert(!settings.save());
+        settingsFile = originalPath;
+        settings.economy = true;
+        assert(settings.save()); // Failed writes do not suppress a later retry.
+    }
 
     obs_encoder_info info{};
     info.id = "qa-video"; info.type = OBS_ENCODER_VIDEO; info.codec = "h264";

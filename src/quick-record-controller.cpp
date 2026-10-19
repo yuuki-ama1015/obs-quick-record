@@ -21,6 +21,7 @@ QuickRecordController::QuickRecordController() : launcherSession([this] {
     settings.save(); // Export the actual binding for the optional external launcher.
     connect(&launcherTimer, &QTimer::timeout, this, [this] {
         if (shuttingDown || launcherWait.elapsed() >= 60000) { launcherTimer.stop(); return; }
+        launcherTimer.setInterval(500); // Only the first request check is immediate.
         bool autoExit = false;
         if (consumeLauncherRequest(launcherRequestPath, QCoreApplication::applicationPid(), &autoExit)) {
             launcherTimer.stop();
@@ -106,7 +107,7 @@ void QuickRecordController::onEvent(obs_frontend_event event)
             launcherRequestPath = QString::fromUtf8(path);
             bfree(path);
             launcherWait.start();
-            if (!launcherRequestPath.isEmpty()) launcherTimer.start(500);
+            if (!launcherRequestPath.isEmpty()) launcherTimer.start(0);
         }
     } else if (event == OBS_FRONTEND_EVENT_RECORDING_STARTING && requested) {
         recordingResult.store(OBS_OUTPUT_ERROR);
