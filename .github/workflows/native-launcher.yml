@@ -3,11 +3,17 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      runner:
+        description: Windows image for isolated native checks
+        type: choice
+        options: [windows-2022, windows-2025]
+        default: windows-2022
 permissions:
   contents: read
 jobs:
   native:
-    runs-on: windows-2022
+    runs-on: ${{ inputs.runner || 'windows-2022' }}
     steps:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1

@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <winrt/Windows.Data.Json.h>
+#include <winrt/Windows.Foundation.Collections.h>
 
 namespace assist {
 namespace fs = std::filesystem;
