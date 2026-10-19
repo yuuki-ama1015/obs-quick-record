@@ -35,7 +35,7 @@ static struct {
     bool otherOutput = false, replay = false, virtualCamera = false;
     bool outputMissing = false;
     bool saveFails = false;
-    int saves = 0;
+    int saves = 0, indicatorConstructions = 0;
     bool stopInsideSignal = false;
     int configReads = 0;
     int opens = 0, prepares = 0, starts = 0, stops = 0, cleanups = 0, staleCleanups = 0;
@@ -104,6 +104,7 @@ template<typename Check> static void scenario(StartMode mode, Check check)
     qa.mode = mode;
     {
         QuickRecordController controller;
+        assert(qa.indicatorConstructions == 0);
         toggle();
         assert(qa.visible && qa.opens == 1);
         check();
@@ -146,7 +147,7 @@ void QuickRecordOverlay::open()
 void QuickRecordOverlay::hide() { qa.visible = false; }
 void QuickRecordOverlay::message(const QString &) {}
 bool QuickRecordOverlay::eventFilter(QObject *, QEvent *) { return false; }
-RecordingIndicator::RecordingIndicator() = default;
+RecordingIndicator::RecordingIndicator() { ++qa.indicatorConstructions; }
 void RecordingIndicator::start(const MonitorInfo &) { qa.indicator = true; }
 void RecordingIndicator::stop() { qa.indicator = false; }
 CaptureController::~CaptureController() { cleanup(); }

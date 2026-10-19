@@ -51,7 +51,7 @@ private:
     QString launcherRequestPath;
     bool requested = false;
     bool externalRecording = false;
-    RecordingIndicator indicator;
+    std::unique_ptr<RecordingIndicator> indicator;
     int seconds = 0;
     QuickRecordOverlay overlay;
     QPointer<SettingsWindow> settingsWindow;

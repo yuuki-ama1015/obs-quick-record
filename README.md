@@ -2,11 +2,11 @@
 
 OBSを起動・最小化したまま、範囲・ウィンドウ・モニターを選択して標準のOBS録画を開始するWindows用プラグインです。`obs-auto-stop`とは独立しており、録画開始・停止の連携にはOBS標準の録画イベントだけを使用します。
 
-現在のバージョンは **0.1.4** です。検証済みの範囲と未検証項目は [docs/testing.md](docs/testing.md) を参照してください。
+現在のバージョンは **0.1.4** です。検証済みの範囲と未検証項目は [docs/testing.md](https://github.com/yuuki-ama1015/obs-quick-record/blob/main/docs/testing.md) を参照してください。
 
 初めて使う方は、配布ZIPに同梱した [使い方.txt](使い方.txt) をお読みください。導入、録画・停止、ショートカット変更、自動停止設定、困ったときの対処、更新とアンインストールを説明しています。Windowsのメモ帳で開けます。
 
-開発を再開する方は [再開手順・現在の状態・未確認項目](docs/CLOUD_HANDOFF.md) と [新しい開発作業へ渡すプロンプト](docs/CLOUD_PROMPT.md) を参照してください。GitHubのmainから取得すれば、以前の会話やローカルの引き継ぎファイルなしで再開できます。
+開発を再開する方は [再開手順・現在の状態・未確認項目](https://github.com/yuuki-ama1015/obs-quick-record/blob/main/docs/CLOUD_HANDOFF.md) と [新しい開発作業へ渡すプロンプト](https://github.com/yuuki-ama1015/obs-quick-record/blob/main/docs/CLOUD_PROMPT.md) を参照してください。GitHubのmainから取得すれば、以前の会話やローカルの引き継ぎファイルなしで再開できます。
 
 ## 動作環境
 
@@ -118,4 +118,4 @@ cmake --install build --prefix stage
 
 SDK準備スクリプトはOBS 32.2.2のソース・公式配布DLL・公式Qt SDKを取得し、固定コミットとSHA-256を検証します。OBS本体の改造やビルド、obs-auto-stopの取得は不要です。GitHub Actionsにも同じビルド・チェック・ZIP成果物生成を用意しています。
 
-APIの根拠と仕様上の判断は [docs/design.md](docs/design.md) に記載しています。ライセンスはGPL-2.0です。
+APIの根拠と仕様上の判断は [docs/design.md](https://github.com/yuuki-ama1015/obs-quick-record/blob/main/docs/design.md) に記載しています。ライセンスはGPL-2.0です。

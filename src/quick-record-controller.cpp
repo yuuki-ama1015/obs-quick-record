@@ -121,7 +121,10 @@ void QuickRecordController::onEvent(obs_frontend_event event)
         pending = false;
         state = QuickRecordState::Recording;
         startTimeout.stop();
-        if (settings.indicator) indicator.start(overlay.target().monitor);
+        if (settings.indicator) {
+            if (!indicator) indicator = std::make_unique<RecordingIndicator>();
+            indicator->start(overlay.target().monitor);
+        }
         const auto &target = overlay.target();
         obs_data_set_string(settings.data, "lastMonitor", target.monitor.id.toUtf8().constData());
         if (settings.rememberRegion && target.kind == CaptureKind::Region) {
@@ -226,7 +229,8 @@ void QuickRecordController::finish()
     prepareTimer.stop();
     countdown.stop();
     overlay.hide();
-    indicator.stop();
+    if (indicator) indicator->stop();
+    indicator.reset();
     capture.cleanup(settings.restoreScene);
     recordingQuality.restore();
     requested = false;

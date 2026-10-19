@@ -32,10 +32,14 @@ target_link_libraries(obs-quick-record PRIVATE "${OBS_LIBRARY}" "${OBS_FRONTEND_
 target_compile_definitions(obs-quick-record PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(obs-quick-record PRIVATE /W4 /utf-8 /permissive-)
 set_target_properties(obs-quick-record PROPERTIES PREFIX "")
+include(CheckIPOSupported)
+check_ipo_supported(RESULT ipoSupported OUTPUT ipoError LANGUAGES CXX)
+if(ipoSupported)
+  set_property(TARGET obs-quick-record PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+endif()
 install(TARGETS obs-quick-record RUNTIME DESTINATION obs-quick-record/bin/64bit LIBRARY DESTINATION obs-quick-record/bin/64bit)
 install(DIRECTORY data/ DESTINATION obs-quick-record/data)
-install(FILES LICENSE README.md AGENTS.md "使い方.txt" DESTINATION obs-quick-record)
-install(DIRECTORY docs/ DESTINATION obs-quick-record/docs)
+install(FILES LICENSE README.md "使い方.txt" DESTINATION obs-quick-record)
 find_program(POWERSHELL_EXECUTABLE NAMES pwsh powershell REQUIRED)
 add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/obs-quick-record-launcher.exe"
   COMMAND "${POWERSHELL_EXECUTABLE}" -NoProfile -File "${CMAKE_CURRENT_SOURCE_DIR}/launcher/build.ps1" -Output "${CMAKE_CURRENT_BINARY_DIR}/obs-quick-record-launcher.exe"
