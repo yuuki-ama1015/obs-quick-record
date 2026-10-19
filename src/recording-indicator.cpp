@@ -14,7 +14,9 @@ RecordingIndicator::RecordingIndicator() : QLabel(nullptr, Qt::Tool | Qt::Framel
 void RecordingIndicator::setElapsedSeconds(qint64 seconds)
 {
     setText(QString::fromUtf8("● REC  %1:%2").arg(seconds / 60, 2, 10, QChar('0')).arg(seconds % 60, 2, 10, QChar('0')));
-    if (size() != sizeHint()) adjustSize();
+    // adjustSize() caps top-level windows to 2/3 of the screen, which can clip text.
+    const auto required = sizeHint();
+    if (size() != required) resize(required);
     // Keep the right edge anchored when the minute count gains another digit.
     move(availableArea.right() - width() - 16, availableArea.top() + 16);
 }
