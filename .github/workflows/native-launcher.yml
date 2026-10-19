@@ -11,6 +11,9 @@ on:
         default: windows-2022
 permissions:
   contents: read
+concurrency:
+  group: native-${{ github.ref }}-${{ inputs.runner || 'windows-2022' }}
+  cancel-in-progress: true
 jobs:
   native:
     runs-on: ${{ inputs.runner || 'windows-2022' }}
