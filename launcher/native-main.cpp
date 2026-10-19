@@ -242,7 +242,10 @@ public:
     }
     int run(bool launchImmediately)
     {
-        if (launchImmediately) launch();
+        if (launchImmediately) {
+            try { launch(); }
+            catch (...) { error(exceptionMessage()); refresh(); }
+        }
         for (;;) {
             HANDLE handles[2]; DWORD count = 0, processIndex = MAXDWORD, directoryIndex = MAXDWORD;
             if (process) { processIndex = count; handles[count++] = process.value; }

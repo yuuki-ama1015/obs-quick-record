@@ -91,3 +91,5 @@ OBS不在の待機測定は旧導入版/最新版を各60秒×2回、起動後10
 ## 2026-10-19 高速化・軽量化の作業ブランチ
 
 追加改善の続きはfeat/performance-hardeningから再開する。UAC中のスクリプト再読とコピー元変更の防止、アトミックな起動依頼、ログ上限、設定の重複保存省略、初回依頼の即時確認、録画準備・ホバー・静止ドラッグの探索削減、長時間REC表示を修正した。機能修正の最終コミット316c24a、Windows CI 39219529567でビルド・全9テスト・ZIP生成成功。詳細と延期項目はdocs/performance-review.md、検証記録はdocs/testing.md末尾を読む。main・Release・PCへの反映と実機性能比較はまだ行っていない。
+
+2026-10-20、残りの改善を同ブランチで実装中。REC表示の遅延生成、SDKキャッシュ/LTO、配布から開発文書の除外、サイズ表示の直接描画、選択中だけのWinEvent監視を追加した。Win32起動アシストはlauncher/native-*.cppの独立試作で、親CMakeと配布物はまだC#版。Windows CIの2022/2025とも実行環境の割り当て待ち。Native assistant checkのビルド・自己テスト・比較測定とWindows build全テストが通るまで配布構成へ切り替えない。tests/measure-assistant.ps1で既存アプリを停止せず隔離比較できる。詳しい再開条件はdocs/performance-review.md末尾。

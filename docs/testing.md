@@ -559,3 +559,13 @@ d65391fのREC表示テストはCI 39219042531で失敗した。QtのadjustSize�
 追加条件：設定内容不変では更新日時も不変、外部変更・削除後は保存先を復元、保存失敗後も再試行。起動直後の依頼は500ms待たずに消費し、後の監視終了と自動終了所有権を維持。録画準備の反復20回で厳密照合の追加呼び出し0回、最終照合不一致なら開始禁止。100分・1000分のREC表示の必要幅と右端位置、停止後の非表示を確認した。
 
 取得したCI ZIPのSHA-256は623C4142B59ACCF671B00EFCEFB3992B5790B190A9A868971D597018BB6785DA。ZIP内の導入スクリプト・日英localeとソースのハッシュ一致、DLL・起動アシスト・使い方・LICENSEの存在、個人設定・私的メモ・録画がないことを確認した。この検証記録追記前のCI成果物であり、Releaseとしては公開していない。実UAC・実録画・各DPIの再受入、CPU・メモリ・起動時間の比較は未実施。main・Release・PCは0.1.4のまま。修正の方針と延期項目はdocs/performance-review.md。
+
+### 2026-10-20 残りの軽量化と隔離ベンチマーク
+
+作業ブランチfeat/performance-hardening。aa20a9fでREC表示の遅延生成・停止時解放、配布文書の整理、SDKキャッシュ、対応MSVCでのRelease LTOを追加。5e4f364でドラッグ中の寸法を直接描画し、ウィンドウ選択中のWinEvent通知と失敗時の周期探索を追加。overlay-checkにドラッグ中のQLabel不変とモード切替・解除の条件を追加した。
+
+Win32起動アシストは独立試作で、親CMakeと配布ZIPはまだC#版を使う。Native assistant checkはJSON/旧キー/UTF-16、アトミックな依頼、ログ上限、Startupリンク、削除範囲、通知による外部プロセス検出、通知失敗時の周期探索、CLR非ロードを検証する設計。これらは現時点で実行結果を得ていない。WinRTの例外もWindowsメッセージ境界内で捕捉する。
+
+このPCではtests/installer-check.ps1が再び成功し、全PowerShellファイルの構文解析とgit diff --checkが成功した。tests/measure-assistant.ps1 -PrepareOnlyでC#比較用EXEの生成に成功し、--benchmark 5で専用一時設定のみを使う計測の正常終了を確認した。単発値は約40.4MiB working set / 30.4MiB private、起動を含む累積CPU約297msで、Win32版の比較値や改善率を示すものではない。
+
+Windows buildとNative assistant checkは2022実行環境の割り当て待ちが続いた。独立検証を2025へ手動依頼したrun 39284005416も、確認時点ではrunner名なし・queued。追加C++コードのコンパイル、CTest、候補ZIPの実物検査、新旧性能比較は未完了。CIに古い同ブランチの重複検証を集約するconcurrencyを追加した。再開時は最新コミットのCI結果を確認し、失敗修正後に再実行する。ネイティブ版の採用はビルド・自己テスト・実測比較後に判断する。main・Release・PCは更新していない。
