@@ -50,7 +50,7 @@ class Application {
         }
         if (self) {
             try { return self->message(window, message, wp, lp); }
-            catch (const std::exception &error) { self->error(wide(error.what())); return 0; }
+            catch (...) { self->error(exceptionMessage()); return 0; }
         }
         return DefWindowProcW(window, message, wp, lp);
     }
@@ -126,10 +126,10 @@ class Application {
                     }
                 }
             }
-        } catch (const std::exception &exception) { releaseKey(); error(wide(exception.what())); }
+        } catch (...) { releaseKey(); error(exceptionMessage()); }
         // No periodic work for a known running OBS after it consumes the request.
         const bool eventDriven = running ? static_cast<bool>(process) : obsEvents && directoryChange != INVALID_HANDLE_VALUE;
-        timer(pendingUntil ? 500 : eventDriven ? 0 : 2000);
+        timer(pendingUntil ? 500 : eventDriven && (running || hasBinding) ? 0 : 2000);
     }
     void launch()
     {
@@ -225,7 +225,7 @@ public:
         refresh(true);
         eventOwner = this;
         if (!forcePolling) obsEvents = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_SHOW, nullptr, obsWindowEvent, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
-        refresh();
+        refresh(true); // Close the discovery gap between the initial scan and hook installation.
         if (benchmark) winrt::check_bool(SetTimer(window, 2, static_cast<UINT>(duration), nullptr) != 0);
     }
     ~Application()
@@ -295,9 +295,10 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
         winrt::check_bool(static_cast<bool>(mutex)); if (GetLastError() == ERROR_ALREADY_EXISTS) return 0;
         assist::Application app(assist::folder(FOLDERID_RoamingAppData) / L"obs-studio/plugin_config/obs-quick-record");
         return app.run(args.size() == 2 && args[1] == L"--launch");
-    } catch (const std::exception &error) {
-        std::cerr << error.what() << '\n';
-        if (args.size() == 1) MessageBoxW(nullptr, assist::wide(error.what()).c_str(), L"OBS startup assistant", MB_OK | MB_ICONERROR);
+    } catch (...) {
+        const auto error = assist::exceptionMessage();
+        std::cerr << assist::utf8(error) << '\n';
+        if (args.size() == 1) MessageBoxW(nullptr, error.c_str(), L"OBS startup assistant", MB_OK | MB_ICONERROR);
         return 1;
     }
 }

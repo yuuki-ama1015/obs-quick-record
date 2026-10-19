@@ -14,6 +14,13 @@ namespace assist {
 using namespace winrt::Windows::Data::Json;
 using Microsoft::WRL::ComPtr;
 void require(bool condition, const char *message) { if (!condition) throw std::runtime_error(message); }
+std::wstring exceptionMessage()
+{
+    try { throw; }
+    catch (const winrt::hresult_error &error) { return std::wstring(error.message()); }
+    catch (const std::exception &error) { return wide(error.what()); }
+    catch (...) { return L"Unexpected startup assistant error"; }
+}
 std::wstring text(const wchar_t *ja, const wchar_t *en)
 { return PRIMARYLANGID(GetUserDefaultUILanguage()) == LANG_JAPANESE ? ja : en; }
 fs::path folder(REFKNOWNFOLDERID id)

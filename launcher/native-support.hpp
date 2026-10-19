@@ -18,6 +18,7 @@ struct Handle {
     explicit operator bool() const { return value && value != INVALID_HANDLE_VALUE; }
 };
 void require(bool condition, const char *message);
+std::wstring exceptionMessage(); // Call only from a catch handler, including WinRT failures.
 std::wstring text(const wchar_t *ja, const wchar_t *en);
 fs::path folder(REFKNOWNFOLDERID id);
 fs::path executable();

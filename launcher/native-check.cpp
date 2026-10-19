@@ -128,8 +128,8 @@ bool runChecks()
         require(!metrics.GetNamedBoolean(L"eventDriven") && metrics.GetNamedNumber(L"timerTicks") >= 1 && metrics.GetNamedNumber(L"processScans") >= 2, "Polling fallback did not discover processes");
         require(GetModuleHandleW(L"clr.dll") == nullptr, "Native launcher loaded the CLR");
         fs::remove_all(root); std::cout << "Native shortcut parsing, atomic requests, log bounds, startup, removal and idle loop passed\n"; return true;
-    } catch (const std::exception &error) {
-        std::cerr << error.what() << '\n'; fs::remove_all(root); return false;
+    } catch (...) {
+        std::cerr << utf8(exceptionMessage()) << '\n'; fs::remove_all(root); return false;
     }
 }
 }

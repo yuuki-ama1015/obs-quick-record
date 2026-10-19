@@ -22,6 +22,9 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           ctest --test-dir build-native --output-on-failure
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Compare isolated idle assistants
+        shell: pwsh
+        run: ./tests/measure-assistant.ps1 -NativeExe ./build-native/obs-quick-record-native.exe -Seconds 15
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -29,4 +32,6 @@ jobs:
           path: |
             build-native/obs-quick-record-native.exe
             build-native/Testing/Temporary/LastTest.log
+            build-benchmark/*.json
+            build-benchmark/*.stderr.txt
           retention-days: 7
