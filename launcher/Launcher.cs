@@ -229,8 +229,12 @@ try {
         const int limit = 256 * 1024;
         var file = new FileInfo(path);
         if (file.Exists && file.Length >= limit) {
-            File.Delete(path + ".1");
-            File.Move(path, path + ".1");
+            // Also bound an oversized log left by an older version; keep its newest bytes.
+            using (var input = File.OpenRead(path)) using (var backup = File.Create(path + ".1")) {
+                input.Seek(Math.Max(0, input.Length - limit), SeekOrigin.Begin);
+                input.CopyTo(backup);
+            }
+            File.Delete(path);
         }
         if (message.Length > 4096) message = message.Substring(0, 4096);
         File.AppendAllText(path, DateTime.Now.ToString("s") + " " + message + Environment.NewLine);
@@ -344,6 +348,10 @@ try {
             AppendLog(log, new string('x', 1024 * 1024));
             if (new FileInfo(log).Length > 17000 || Directory.GetFiles(root, "launcher.log*").Length != 2)
                 throw new InvalidDataException("Log retention or message size was not bounded");
+            File.WriteAllText(log, new string('x', 1024 * 1024) + "newest entry");
+            AppendLog(log, "after oversized log");
+            if (new FileInfo(log + ".1").Length != 256 * 1024 || !File.ReadAllText(log + ".1").EndsWith("newest entry"))
+                throw new InvalidDataException("Legacy oversized log was not bounded");
             string settingsPath = Path.Combine(root, "settings.json");
             var cache = new BindingCache();
             var before = cache.Read(settingsPath);
