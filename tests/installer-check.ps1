@@ -40,7 +40,7 @@ try {
             throw ('Entry must bypass process policy and report missing package: ' + $output)
         }
     } finally { $process.Dispose() }
-    $package = Join-Path $root 'package'
+    $package = Join-Path $root "package 日本語 'quoted'"
     $env:ProgramData = Join-Path $root 'machine'
     New-Item -ItemType Directory -Path (Join-Path $package 'bin/64bit'), (Join-Path $package 'data/locale') -Force | Out-Null
     [IO.File]::WriteAllText((Join-Path $package 'bin/64bit/obs-quick-record.dll'), 'test plugin')
@@ -77,27 +77,55 @@ try {
     try { Install-Plugin $package } catch { $blocked = $_.Exception.Message -match 'Exit OBS|OBS.*終了' }
     if (!$blocked) { throw 'Running OBS must prevent plugin replacement' }
     # Substitute only elevation: production wrapper must propagate details and remove the diagnostic file.
+    function Read-Elevation($Arguments) {
+        if ($Arguments -notmatch '-EncodedCommand ([A-Za-z0-9+/=]+)$' -or $Arguments -match '-File\s') { throw 'Elevation must not execute an external script' }
+        $code = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($Matches[1]))
+        $childTokens = $null; $childErrors = $null
+        [Management.Automation.Language.Parser]::ParseInput($code, [ref]$childTokens, [ref]$childErrors) | Out-Null
+        if ($childErrors.Count) { throw 'Elevated command parse failed' }
+        if ($code -notmatch "\`$resultPath = '((?:[^']|'')*)'") { throw 'Diagnostic path missing' }
+        $script:diagnosticFile = $Matches[1].Replace("''", "'")
+        foreach ($relative in 'bin/64bit/obs-quick-record.dll', 'data/locale/en-US.ini', 'data/locale/ja-JP.ini') {
+            $changed = $false
+            try { $writer = [IO.File]::OpenWrite((Join-Path $package $relative)); $writer.Dispose(); $changed = $true } catch [IO.IOException] {}
+            if ($changed) { throw 'Payload was writable during elevation' }
+        }
+        return $code
+    }
     function Start-Process {
         param($FilePath, $Verb, $ArgumentList, $WindowStyle, [switch]$PassThru, [switch]$Wait)
-        if ($ArgumentList -notmatch '-ResultFile "([^"]+)"') { throw 'Diagnostic path missing' }
-        $script:diagnosticFile = $Matches[1]
-        [IO.File]::WriteAllText($script:diagnosticFile, 'test copy failure: locale access denied')
+        Read-Elevation $ArgumentList | Out-Null
+        $stream = [IO.File]::Open($script:diagnosticFile, [IO.FileMode]::Truncate, [IO.FileAccess]::Write, [IO.FileShare]::ReadWrite)
+        $writer = [IO.StreamWriter]::new($stream)
+        try { $writer.Write('test copy failure: locale access denied') } finally { $writer.Dispose() }
         return @{ ExitCode = 1 }
     }
     $blocked = $false
-    try { Invoke-PluginInstall 'test.ps1' } catch { $blocked = $_.Exception.Message -like '*test copy failure: locale access denied*' }
+    try { Invoke-PluginInstall $package } catch { $blocked = $_.Exception.Message -like '*test copy failure: locale access denied*' }
     if (!$blocked -or (Test-Path -LiteralPath $script:diagnosticFile)) { throw 'Copy diagnostics were lost or left behind' }
     function Start-Process {
         param($FilePath, $Verb, $ArgumentList, $WindowStyle, [switch]$PassThru, [switch]$Wait)
-        $ArgumentList -match '-ResultFile "([^"]+)"' | Out-Null
-        $script:diagnosticFile = $Matches[1]
+        Read-Elevation $ArgumentList | Out-Null
         throw 'test UAC cancelled'
     }
-    try { Invoke-PluginInstall 'test.ps1'; throw 'Cancellation accepted' } catch {
+    try { Invoke-PluginInstall $package; throw 'Cancellation accepted' } catch {
         if ($_.Exception.Message -ne 'test UAC cancelled') { throw }
     }
     if (Test-Path -LiteralPath $script:diagnosticFile) { throw 'Cancelled elevation left diagnostics behind' }
-    Write-Host 'Plugin-only copy, exact files and active-OBS guard passed'
+    # Locks are released even after cancellation; a normal update can retry.
+    $stream = [IO.File]::OpenWrite($localePath); $stream.Dispose()
+    function Start-Process {
+        param($FilePath, $Verb, $ArgumentList, $WindowStyle, [switch]$PassThru, [switch]$Wait)
+        $code = 'function Get-Process { param($Name, $ErrorAction) return $null }' + "`n" + (Read-Elevation $ArgumentList)
+        $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($code))
+        # Execute the actual frozen copy command, unelevated and into the temporary ProgramData.
+        & $FilePath -NoProfile -NonInteractive -EncodedCommand $encoded
+        return @{ ExitCode = $LASTEXITCODE }
+    }
+    [IO.File]::WriteAllText((Join-Path $package 'bin/64bit/obs-quick-record.dll'), 'updated plugin')
+    Invoke-PluginInstall $package
+    if ([IO.File]::ReadAllText($installedDll) -ne 'updated plugin' -or (Test-Path -LiteralPath $script:diagnosticFile)) { throw 'Frozen elevation did not copy or clean up' }
+    Write-Host 'Plugin-only copy, frozen elevation, payload locks, diagnostics and active-OBS guard passed'
 } finally {
     $env:ProgramData = $oldProgramData
     $resolved = [IO.Path]::GetFullPath($root)
