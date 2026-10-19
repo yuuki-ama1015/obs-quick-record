@@ -14,12 +14,49 @@
 #include <QVBoxLayout>
 #include <QWidget>
 #include <windows.h>
+#include <functional>
+#include <map>
+
+namespace {
+// Out-of-context WinEvent callbacks run on the installing GUI thread. Nothing is
+// installed while the selector is closed; failed registration keeps timer polling.
+class WindowEvents final : public QObject {
+    inline static std::map<HWINEVENTHOOK, WindowEvents *> owners;
+    std::function<void()> changed;
+    std::vector<HWINEVENTHOOK> hooks;
+    static void CALLBACK event(HWINEVENTHOOK hook, DWORD type, HWND window, LONG object, LONG child, DWORD, DWORD)
+    {
+        auto found = owners.find(hook);
+        if (found == owners.end() || !window) return;
+        if (type != EVENT_SYSTEM_FOREGROUND && (object != OBJID_WINDOW || child != CHILDID_SELF)) return;
+        if (type != EVENT_OBJECT_DESTROY && GetAncestor(window, GA_ROOT) != window) return;
+        auto callback = found->second->changed;
+        callback();
+    }
+public:
+    WindowEvents(QObject *parent, std::function<void()> callback) : QObject(parent), changed(std::move(callback))
+    {
+        for (auto range : {std::pair<DWORD, DWORD>{EVENT_OBJECT_CREATE, EVENT_OBJECT_NAMECHANGE},
+                           {EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND}}) {
+            auto hook = SetWinEventHook(range.first, range.second, nullptr, event, 0, 0,
+                                       WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+            if (!hook) { clear(); break; }
+            hooks.push_back(hook); owners.emplace(hook, this);
+        }
+    }
+    bool active() const { return !hooks.empty(); }
+    void clear() { for (auto hook : hooks) { owners.erase(hook); UnhookWinEvent(hook); } hooks.clear(); }
+    ~WindowEvents() override { clear(); }
+};
+}
 
 class QuickRecordOverlay::Surface : public QWidget {
 public:
     QPointer<QuickRecordOverlay> owner;
     MonitorInfo monitor;
     QRect lastSelection;
+    QRect dimensionsBounds;
+    QString dimensions;
     QLabel *label;
     Surface(QuickRecordOverlay &owner, MonitorInfo monitor)
         : QWidget(nullptr, Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint), owner(&owner), monitor(monitor)
@@ -72,6 +109,12 @@ public:
             p.setCompositionMode(QPainter::CompositionMode_SourceOver);
             p.setPen(QPen(QColor("#ff5252"), 3));
             p.drawRect(selection.adjusted(1,1,-1,-1));
+        }
+        if (!dimensionsBounds.isEmpty()) {
+            p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+            p.fillRect(dimensionsBounds, QColor("#252525"));
+            p.setPen(Qt::white);
+            p.drawText(dimensionsBounds, Qt::AlignCenter, dimensions);
         }
     }
     QPoint physicalPoint(const QMouseEvent *e) const
@@ -126,6 +169,9 @@ void QuickRecordOverlay::open()
 void QuickRecordOverlay::hide()
 {
     hoverTimer.stop();
+    hoverTimer.setSingleShot(false);
+    delete windowEvents;
+    windowEvents = nullptr;
     qApp->removeEventFilter(this);
     dragging = false;
     for (auto &surface : surfaces) {
@@ -154,6 +200,9 @@ bool QuickRecordOverlay::eventFilter(QObject *object, QEvent *event)
 }
 void QuickRecordOverlay::chooseMode(CaptureKind value)
 {
+    delete windowEvents;
+    windowEvents = nullptr;
+    hoverTimer.setSingleShot(false);
     mode = value;
     ready = false;
     dragging = false;
@@ -162,7 +211,16 @@ void QuickRecordOverlay::chooseMode(CaptureKind value)
     status = text("SelectHint");
     emit selectionReset();
     if (mode == CaptureKind::Region) hoverTimer.stop();
-    else hoverTimer.start(50);
+    else {
+        if (mode == CaptureKind::Window) {
+            auto *events = new WindowEvents(this, [this] {
+                if (!ready && mode == CaptureKind::Window && !hoverTimer.isActive()) hoverTimer.start(50);
+            });
+            windowEvents = events;
+            hoverTimer.setSingleShot(events->active());
+        }
+        hoverTimer.start(50);
+    }
     for (auto &surface : surfaces) surface->setCursor(mode == CaptureKind::Region ? Qt::CrossCursor : Qt::ArrowCursor);
     repaint();
 }
@@ -172,11 +230,14 @@ void QuickRecordOverlay::hover(bool force)
     if (mode == CaptureKind::Region && !dragging) return;
     const auto position = MonitorSelector::cursor();
     if (mode != CaptureKind::Region) {
-        if (!force && hoverScan.isValid() && hoverScan.elapsed() < 50) return;
+        if (!force && hoverScan.isValid() && hoverScan.elapsed() < 50) {
+            if (hoverTimer.isSingleShot() && !hoverTimer.isActive()) hoverTimer.start(int(50 - hoverScan.elapsed()));
+            return;
+        }
         const bool moved = !hoverScan.isValid() || hoverPosition != position;
         hoverPosition = position;
         hoverScan.restart();
-        hoverTimer.start(moved ? 50 : 250); // Still recheck stationary windows for movement/z-order changes.
+        if (!hoverTimer.isSingleShot()) hoverTimer.start(moved ? 50 : 250);
     } else {
         if (!force && hoverScan.isValid() && hoverPosition == position) return;
         hoverPosition = position;
@@ -188,7 +249,6 @@ void QuickRecordOverlay::hover(bool force)
     else if (mode == CaptureKind::Window) selected = WindowSelector::at(position, monitors);
     else if (mode == CaptureKind::Region && dragging) {
         selected = RegionSelector::between(dragStart, position, monitors);
-        status = QString("%1 × %2\n").arg(selected.physical.width()).arg(selected.physical.height()) + text("SelectHint");
     }
     if (selected.physical != previous.physical || selected.windowHandle != previous.windowHandle ||
         selected.processId != previous.processId || selected.title != previous.title ||
@@ -198,7 +258,7 @@ void QuickRecordOverlay::hover(bool force)
 void QuickRecordOverlay::press(const QPoint &physical)
 {
     ready = false;
-    if (mode == CaptureKind::Region) { dragging = true; dragStart = physical; hoverTimer.start(16); }
+    if (mode == CaptureKind::Region) { dragging = true; dragStart = physical; status = text("SelectHint"); hoverTimer.start(16); }
     emit selectionReset();
     hover(true);
 }
@@ -215,6 +275,8 @@ void QuickRecordOverlay::release(const QPoint &physical)
     }
     ready = true;
     hoverTimer.stop();
+    delete windowEvents;
+    windowEvents = nullptr;
     status = selected.title + "\n" + QString("%1 × %2\n").arg(selected.physical.width()).arg(selected.physical.height()) + text("ReadyHint");
     repaint();
     emit selectionReady();
@@ -223,8 +285,23 @@ void QuickRecordOverlay::repaint()
 {
     for (auto &surface : surfaces) {
         if (surface->label->text() != status) surface->label->setText(status);
-        const auto damage = RegionSelector::selectionDamage(surface->lastSelection, selected.physical,
+        auto damage = RegionSelector::selectionDamage(surface->lastSelection, selected.physical,
                                                             surface->monitor.physical, surface->size());
+        const auto oldBounds = surface->dimensionsBounds;
+        const auto oldDimensions = surface->dimensions;
+        surface->dimensionsBounds = {};
+        if (dragging && !selected.physical.isEmpty() && surface->monitor.physical.intersects(selected.physical)) {
+            surface->dimensions = QString("%1 × %2").arg(selected.physical.width()).arg(selected.physical.height());
+            const auto size = surface->fontMetrics().size(Qt::TextSingleLine, surface->dimensions) + QSize(20, 12);
+            const auto selection = surface->localRect(selected.physical).toAlignedRect();
+            const int x = qBound(0, selection.center().x() - size.width() / 2, qMax(0, surface->width() - size.width()));
+            int y = selection.bottom() + 8;
+            if (y + size.height() > surface->height()) y = selection.top() - size.height() - 8;
+            y = qBound(0, y, qMax(0, surface->height() - size.height()));
+            surface->dimensionsBounds = QRect(QPoint(x, y), size); // Local logical pixels.
+        }
+        if (oldBounds != surface->dimensionsBounds || oldDimensions != surface->dimensions)
+            damage = damage.united(QRegion(oldBounds)).united(QRegion(surface->dimensionsBounds));
         surface->lastSelection = selected.physical;
         if (!damage.isEmpty()) surface->update(damage);
     }

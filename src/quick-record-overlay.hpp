@@ -35,6 +35,7 @@ private:
     CaptureTarget selected;
     CaptureKind mode = CaptureKind::Monitor;
     QTimer hoverTimer;
+    QObject *windowEvents = nullptr; // Owns selection-only WinEvent hooks on the GUI thread.
     QElapsedTimer hoverScan;
     QPoint hoverPosition;
     QString status;

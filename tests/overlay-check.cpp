@@ -4,6 +4,7 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPushButton>
+#include <QLabel>
 #include <QWidget>
 #include <QEventLoop>
 #include <cassert>
@@ -55,6 +56,8 @@ int main(int argc, char **argv)
         QMouseEvent release(QEvent::MouseButtonRelease, last, surface->mapToGlobal(last),
                             Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
         QApplication::sendEvent(surface, &press);
+        wait();
+        assert(surface->findChild<QLabel *>()->text() == "SelectHint"); // Drag dimensions do not relayout QLabel.
         QApplication::sendEvent(surface, &release);
         assert(overlay.target().valid());
     };
@@ -114,6 +117,10 @@ int main(int argc, char **argv)
     assert(hoverTimer->isActive() && hoverTimer->interval() == 50);
     wait();
     assert(hoverTimer->interval() == 250);
+    for (auto *button : surface->findChildren<QPushButton *>())
+        if (button->text() == "Window") button->click();
+    wait();
+    if (hoverTimer->isSingleShot()) assert(!hoverTimer->isActive()); // Event hooks replace stationary polling.
     key(surface, Qt::Key_Escape);
     assert(!hoverTimer->isActive());
     {
