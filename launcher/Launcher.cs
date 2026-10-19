@@ -221,8 +221,30 @@ try {
     }
     void Log(string message)
     {
-        try { Directory.CreateDirectory(config); File.AppendAllText(Path.Combine(config, "launcher.log"), DateTime.Now.ToString("s") + " " + message + Environment.NewLine); }
+        try { Directory.CreateDirectory(config); AppendLog(Path.Combine(config, "launcher.log"), message); }
         catch (IOException) {} catch (UnauthorizedAccessException) {}
+    }
+    static void AppendLog(string path, string message)
+    {
+        const int limit = 256 * 1024;
+        var file = new FileInfo(path);
+        if (file.Exists && file.Length >= limit) {
+            File.Delete(path + ".1");
+            File.Move(path, path + ".1");
+        }
+        if (message.Length > 4096) message = message.Substring(0, 4096);
+        File.AppendAllText(path, DateTime.Now.ToString("s") + " " + message + Environment.NewLine);
+    }
+    static void WriteRequest(string path, int pid)
+    {
+        string temporary = path + "." + Guid.NewGuid() + ".tmp";
+        try {
+            File.WriteAllText(temporary, pid.ToString(CultureInfo.InvariantCulture) + "\nexit-after-capture");
+            // The plugin sees either the complete old request or the complete new one.
+            try { File.Replace(temporary, path, null); }
+            catch (FileNotFoundException) { File.Move(temporary, path); }
+        }
+        finally { File.Delete(temporary); }
     }
     void Refresh(object sender, EventArgs args)
     {
@@ -257,7 +279,7 @@ try {
             ReleaseKey();
             Directory.CreateDirectory(config);
             obsProcess = Process.Start(new ProcessStartInfo(ObsPath, "--minimize-to-tray") { WorkingDirectory = Path.GetDirectoryName(ObsPath), UseShellExecute = false });
-            File.WriteAllText(RequestPath, obsProcess.Id.ToString() + "\nexit-after-capture");
+            WriteRequest(RequestPath, obsProcess.Id);
             pendingUntil = DateTime.UtcNow.AddSeconds(60);
             timer.Interval = RefreshInterval(true);
             Log("OBS launched; selector requested");
@@ -303,6 +325,25 @@ try {
         try
         {
             Directory.CreateDirectory(folder);
+            string requestPath = Path.Combine(root, "launch-request.txt");
+            WriteRequest(requestPath, 42);
+            if (File.ReadAllText(requestPath) != "42\nexit-after-capture") throw new InvalidDataException("New request was not published");
+            WriteRequest(requestPath, 43);
+            if (File.ReadAllText(requestPath) != "43\nexit-after-capture" || Directory.GetFiles(root, "*.tmp").Length != 0)
+                throw new InvalidDataException("Request replacement was incomplete or left temporary files");
+            string blockedRequest = Path.Combine(root, "blocked-request");
+            Directory.CreateDirectory(blockedRequest);
+            try { WriteRequest(blockedRequest, 44); throw new InvalidDataException("Invalid request destination accepted"); }
+            catch (IOException) {} catch (UnauthorizedAccessException) {}
+            if (Directory.GetFiles(root, "*.tmp").Length != 0) throw new InvalidDataException("Failed publication left temporary files");
+            string log = Path.Combine(root, "launcher.log");
+            File.WriteAllText(log, new string('x', 256 * 1024));
+            AppendLog(log, "rotated");
+            if (new FileInfo(log + ".1").Length != 256 * 1024 || !File.ReadAllText(log).Contains("rotated"))
+                throw new InvalidDataException("Log did not rotate");
+            AppendLog(log, new string('x', 1024 * 1024));
+            if (new FileInfo(log).Length > 17000 || Directory.GetFiles(root, "launcher.log*").Length != 2)
+                throw new InvalidDataException("Log retention or message size was not bounded");
             string settingsPath = Path.Combine(root, "settings.json");
             var cache = new BindingCache();
             var before = cache.Read(settingsPath);
