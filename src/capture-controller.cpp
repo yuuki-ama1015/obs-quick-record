@@ -148,7 +148,7 @@ CaptureReadiness CaptureController::ready()
     auto *sceneSource = obs_scene_get_source(scene);
     if (obs_source_removed(sceneSource) || obs_source_removed(source) || obs_sceneitem_get_scene(item) != scene)
         return CaptureReadiness::Failed;
-    if (target.kind == CaptureKind::Window && !WindowSelector::stillValid(target)) return CaptureReadiness::Failed;
+    if (target.kind == CaptureKind::Window && !WindowSelector::sameWindow(target)) return CaptureReadiness::Failed;
     if (!obs_source_get_width(source) || !obs_source_get_height(source)) return CaptureReadiness::Waiting;
     if (target.kind == CaptureKind::Window && !windowCaptureMatches(source, target)) return CaptureReadiness::Waiting;
     if (!cropped && target.kind == CaptureKind::Region) {
@@ -210,6 +210,8 @@ CaptureReadiness CaptureController::ready()
 bool CaptureController::start()
 {
     if (obs_frontend_recording_active() || ready() != CaptureReadiness::Ready) return false;
+    // Keep the full OBS title/class/executable resolution at the actual start boundary.
+    if (target.kind == CaptureKind::Window && !WindowSelector::stillValid(target)) return false;
     obs_frontend_recording_start();
     return true;
 }

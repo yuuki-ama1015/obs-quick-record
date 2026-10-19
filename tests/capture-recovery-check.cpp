@@ -14,6 +14,8 @@ static bool duplicateTitle = false;
 static bool hooked = false, wrongWindow = false;
 static obs_source_t *transition = nullptr;
 static int starts = 0;
+static int fullChecks = 0, lightChecks = 0;
+static bool available = true, resolves = true;
 extern "C" {
 obs_source_t *obs_frontend_get_current_scene() { return obs_source_get_ref(program); }
 obs_source_t *obs_frontend_get_current_preview_scene() { return obs_source_get_ref(preview); }
@@ -37,7 +39,8 @@ bool obs_get_video_info(obs_video_info *video)
 { video->base_width = 1920; video->base_height = 1080; return true; }
 }
 bool MonitorSelector::stillValid(const MonitorInfo &) { return true; }
-bool WindowSelector::stillValid(const CaptureTarget &) { return true; }
+bool WindowSelector::sameWindow(const CaptureTarget &) { ++lightChecks; return available; }
+bool WindowSelector::stillValid(const CaptureTarget &) { ++fullChecks; return resolves; }
 QString WindowSelector::encode(const QString &title, const QString &windowClass, const QString &exe)
 { return title + ":" + windowClass + ":" + exe; }
 
@@ -144,7 +147,13 @@ int main(int argc, char **argv)
         assert(!controller.prepare(target, true)); // Same title, different class/exe is still ambiguous.
         duplicateTitle = false;
         assert(controller.prepare(target, true));
+        const int afterPrepare = fullChecks;
         assert(controller.ready() == CaptureReadiness::Waiting); // Dimensions alone do not prove acquisition.
+        for (int i = 0; i < 20; ++i) assert(controller.ready() == CaptureReadiness::Waiting);
+        assert(fullChecks == afterPrepare && lightChecks >= 21); // Warm-up does not enumerate OBS window matches.
+        available = false;
+        assert(controller.ready() == CaptureReadiness::Failed);
+        available = true;
         hooked = true;
         wrongWindow = true;
         assert(controller.ready() == CaptureReadiness::Waiting);
@@ -155,7 +164,11 @@ int main(int argc, char **argv)
         assert(controller.ready() == CaptureReadiness::Waiting);
         QThread::msleep(260);
         assert(controller.ready() == CaptureReadiness::Ready);
+        resolves = false;
+        assert(!controller.start() && starts == 0); // A changed final resolution cannot start recording.
+        resolves = true;
         assert(controller.start() && starts == 1);
+        assert(fullChecks == afterPrepare + 2);
         controller.cleanup();
         assert(program == obs_scene_get_source(a));
         obs_source_release(transition);

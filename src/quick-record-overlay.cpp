@@ -177,6 +177,10 @@ void QuickRecordOverlay::hover(bool force)
         hoverPosition = position;
         hoverScan.restart();
         hoverTimer.start(moved ? 50 : 250); // Still recheck stationary windows for movement/z-order changes.
+    } else {
+        if (!force && hoverScan.isValid() && hoverPosition == position) return;
+        hoverPosition = position;
+        hoverScan.restart();
     }
     const auto previous = selected;
     const auto previousStatus = status;

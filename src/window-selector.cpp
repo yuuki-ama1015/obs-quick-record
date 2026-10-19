@@ -60,16 +60,25 @@ CaptureTarget WindowSelector::at(QPoint point, const std::vector<MonitorInfo> &m
     // EnumWindows is z-ordered and lets us skip our full-desktop overlay and all OBS windows.
     EnumWindows([](HWND window, LPARAM data) -> BOOL {
         auto &search = *reinterpret_cast<Search *>(data);
-        if (!eligible(window)) return TRUE;
+        if (!IsWindowVisible(window) || IsIconic(window)) return TRUE;
         RECT rect{};
-        if (FAILED(DwmGetWindowAttribute(window, DWMWA_EXTENDED_FRAME_BOUNDS, &rect, sizeof(rect))))
-            if (!GetWindowRect(window, &rect)) return TRUE;
+        if (!GetWindowRect(window, &rect)) return TRUE;
         POINT point{search.point.x(), search.point.y()};
         if (!PtInRect(&rect, point)) return TRUE;
-        search.result = describe(window, search.monitors, true);
-        return !search.result.valid();
+        // DWM, process image and title queries are needed only for a candidate under the pointer.
+        auto target = describe(window, search.monitors, true);
+        if (!target.valid() || !target.physical.contains(search.point)) return TRUE;
+        search.result = std::move(target);
+        return FALSE;
     }, reinterpret_cast<LPARAM>(&search));
     return search.result;
+}
+bool WindowSelector::sameWindow(const CaptureTarget &target)
+{
+    const auto window = reinterpret_cast<HWND>(target.windowHandle);
+    DWORD pid = 0;
+    return IsWindowVisible(window) && !IsIconic(window) &&
+        GetWindowThreadProcessId(window, &pid) && pid == target.processId;
 }
 bool WindowSelector::stillValid(const CaptureTarget &target)
 {
