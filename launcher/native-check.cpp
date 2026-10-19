@@ -24,10 +24,12 @@ static DWORD run(const fs::path &application, std::wstring command, DWORD timeou
 }
 bool runChecks()
 {
+    std::cerr << "Native checks: creating isolated directory\n";
     GUID id{}; winrt::check_hresult(CoCreateGuid(&id)); wchar_t guid[40]{}; StringFromGUID2(id, guid, 40);
     const auto root = fs::temp_directory_path() / (L"obs-quick-record-native-check-" + std::wstring(guid));
     require(fs::create_directory(root), "Cannot create test directory");
     try {
+        std::cerr << "Native checks: JSON bindings\n";
         auto parse = [](const wchar_t *json, UINT modifiers, UINT key) { require(parseBinding(json) == Binding{modifiers, key}, "Shortcut parse mismatch"); };
         parse(L"{}", MOD_ALT, 'R');
         parse(LR"({"launcherModifiers":6,"launcherVirtualKey":121})", MOD_CONTROL | MOD_SHIFT, VK_F10);
@@ -48,6 +50,7 @@ bool runChecks()
             require(rejected, "Invalid shortcut was accepted");
         }
         const auto settings = root / L"settings.json";
+        std::cerr << "Native checks: settings cache\n";
         BindingCache cache; require(cache.read(settings) == Binding{}, "Missing settings default failed");
         writeFile(settings, R"({"launcherModifiers":6,"launcherVirtualKey":121})");
         require(cache.read(settings) == Binding{6,121}, "Changed binding not loaded");
@@ -64,6 +67,7 @@ bool runChecks()
         require(cache.read(settings) == Binding{}, "Deleted settings not reset");
 
         const auto request = root / L"request.txt";
+        std::cerr << "Native checks: atomic requests\n";
         writeRequest(request, 42); require(readFile(request) == "42\nexit-after-capture", "Initial request mismatch");
         std::atomic<bool> stop{false}; std::atomic<int> invalidReads{0};
         std::thread reader([&] {
@@ -87,11 +91,13 @@ bool runChecks()
         for (const auto &item : fs::directory_iterator(root)) require(item.path().extension() != L".tmp", "Temporary request leaked");
 
         auto log = root / L"launcher.log";
+        std::cerr << "Native checks: bounded logs\n";
         writeFile(log, std::string(1024 * 1024, 'x') + "newest entry"); appendLog(log, L"rotated");
         require(fs::file_size(log.wstring() + L".1") == 256 * 1024 && readFile(log.wstring() + L".1").find("newest entry") != std::string::npos, "Old log was not bounded");
         appendLog(log, std::wstring(1000000, L'x')); require(fs::file_size(log) < 17000, "Long log message was not bounded");
 
         auto installed = root / L"OBSQuickRecordLauncher"; fs::create_directory(installed);
+        std::cerr << "Native checks: Startup link\n";
         auto exe = installed / L"obs-quick-record-launcher.exe", link = root / L"startup.lnk";
         fs::copy_file(executable(), exe); writeFile(installed / L"keep.txt", "unrelated file");
         require(safeInstalledPath(exe, root) && !safeInstalledPath(executable(), root) && !safeInstalledPath(exe, root / L"outside"), "Uninstall path safety check failed");
@@ -107,6 +113,7 @@ bool runChecks()
         persisted.Reset(); shortcut.Reset(); setStartup(false, link, exe); setStartup(false, link, exe); require(!fs::exists(link), "Startup removal failed");
 
         auto script = root / L"remove.ps1";
+        std::cerr << "Native checks: safe removal\n";
         writeFile(script, "\xEF\xBB\xBF" + utf8(removalScript(exe, MAXLONG, false)));
         writeFile(exe, readFile(exe) + "changed");
         auto powershell = folder(FOLDERID_System) / L"WindowsPowerShell/v1.0/powershell.exe";
@@ -116,6 +123,7 @@ bool runChecks()
         require(run(powershell, command) == 0 && !fs::exists(exe) && fs::exists(installed / L"keep.txt"), "Safe removal failed");
 
         auto image = static_cast<HICON>(LoadImageW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(1), IMAGE_ICON, 16, 16, 0));
+        std::cerr << "Native checks: icon and idle loop\n";
         require(image != nullptr, "Native tray icon missing"); DestroyIcon(image);
         auto report = root / L"probe.json";
         require(run(executable(), L"\"" + executable().wstring() + L"\" --benchmark 3 \"" + report.wstring() + L"\"", 15000) == 0, "Isolated native loop failed");
