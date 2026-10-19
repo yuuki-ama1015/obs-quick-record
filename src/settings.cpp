@@ -1,5 +1,6 @@
 #include "settings.hpp"
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QSaveFile>
 #include <util/bmem.h>

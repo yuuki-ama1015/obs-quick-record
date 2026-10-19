@@ -1,4 +1,5 @@
 #include "quick-record-overlay.hpp"
+#include "recording-indicator.hpp"
 #include <QApplication>
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -115,5 +116,21 @@ int main(int argc, char **argv)
     assert(hoverTimer->interval() == 250);
     key(surface, Qt::Key_Escape);
     assert(!hoverTimer->isActive());
+    {
+        RecordingIndicator indicator;
+        MonitorInfo monitor; monitor.screen = QGuiApplication::primaryScreen();
+        assert(monitor.screen);
+        indicator.start(monitor);
+        const auto area = monitor.screen->availableGeometry();
+        for (qint64 seconds : {5999LL, 6000LL, 59999LL, 60000LL}) {
+            indicator.setElapsedSeconds(seconds);
+            assert(indicator.size() == indicator.sizeHint());
+            assert(indicator.x() + indicator.width() == area.right() - 16);
+            assert(area.contains(indicator.geometry()));
+        }
+        assert(indicator.text().contains("1000:00"));
+        indicator.stop();
+        assert(!indicator.isVisible());
+    }
     std::cout << "selection confirmation, scoped Enter/Escape, repeat and mode reset passed\n";
 }

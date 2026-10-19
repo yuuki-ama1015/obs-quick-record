@@ -8,7 +8,9 @@ public:
     RecordingIndicator();
     void start(const MonitorInfo &monitor);
     void stop();
+    void setElapsedSeconds(qint64 seconds);
 private:
+    QRect availableArea;
     QTimer timer;
     QElapsedTimer elapsed;
 };
