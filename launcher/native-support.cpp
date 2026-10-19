@@ -210,11 +210,29 @@ Binding parseBinding(const std::wstring &json)
         require(name.rfind(L"OBS_KEY_", 0) == 0, "Invalid OBS shortcut"); name.erase(0, 8);
         result = {0, 0};
         if (name.size() == 1 && ((name[0] >= L'A' && name[0] <= L'Z') || (name[0] >= L'0' && name[0] <= L'9'))) result.key = name[0];
+        else if (name.size() == 7 && _wcsnicmp(name.c_str(), L"NUMPAD", 6) == 0 && name[6] >= L'0' && name[6] <= L'9') result.key = VK_NUMPAD0 + name[6] - L'0';
         else if (name.size() >= 2 && name[0] == L'F' && name.size() <= 3 && name.find_first_not_of(L"0123456789", 1) == std::wstring::npos) {
             auto index = std::stoul(name.substr(1)); if (index >= 1 && index <= 24) result.key = VK_F1 + static_cast<UINT>(index) - 1;
         } else {
             static const std::pair<const wchar_t *, UINT> names[] = {{L"SPACE",VK_SPACE},{L"RETURN",VK_RETURN},{L"ENTER",VK_RETURN},{L"ESCAPE",VK_ESCAPE},{L"TAB",VK_TAB},{L"BACK",VK_BACK},{L"HOME",VK_HOME},{L"END",VK_END},{L"LEFT",VK_LEFT},{L"RIGHT",VK_RIGHT},{L"UP",VK_UP},{L"DOWN",VK_DOWN},{L"INSERT",VK_INSERT},{L"DELETE",VK_DELETE},{L"PAGEUP",VK_PRIOR},{L"PAGEDOWN",VK_NEXT},{L"PAUSE",VK_PAUSE}};
             for (const auto &entry : names) if (equal(name, entry.first)) result.key = entry.second;
+            // Names previously accepted by the managed Keys enum. Current OBS
+            // exports the actual virtual key; these preserve older configuration.
+            static const std::pair<const wchar_t *, UINT> legacy[] = {
+                {L"BACKSPACE",VK_BACK},{L"PRIOR",VK_PRIOR},{L"NEXT",VK_NEXT},{L"CAPITAL",VK_CAPITAL},
+                {L"CAPSLOCK",VK_CAPITAL},{L"NUMLOCK",VK_NUMLOCK},{L"SCROLL",VK_SCROLL},
+                {L"MULTIPLY",VK_MULTIPLY},{L"ADD",VK_ADD},{L"SEPARATOR",VK_SEPARATOR},
+                {L"SUBTRACT",VK_SUBTRACT},{L"DECIMAL",VK_DECIMAL},{L"DIVIDE",VK_DIVIDE},
+                {L"PRINTSCREEN",VK_SNAPSHOT},{L"SNAPSHOT",VK_SNAPSHOT},{L"APPS",VK_APPS},
+                {L"OEMSEMICOLON",VK_OEM_1},{L"OEMPLUS",VK_OEM_PLUS},{L"OEMCOMMA",VK_OEM_COMMA},
+                {L"OEMMINUS",VK_OEM_MINUS},{L"OEMPERIOD",VK_OEM_PERIOD},{L"OEMQUESTION",VK_OEM_2},
+                {L"OEMTILDE",VK_OEM_3},{L"OEMOPENBRACKETS",VK_OEM_4},{L"OEMPIPE",VK_OEM_5},
+                {L"OEMCLOSEBRACKETS",VK_OEM_6},{L"OEMQUOTES",VK_OEM_7},{L"OEMBACKSLASH",VK_OEM_102},
+                {L"VOLUMEMUTE",VK_VOLUME_MUTE},{L"VOLUMEDOWN",VK_VOLUME_DOWN},{L"VOLUMEUP",VK_VOLUME_UP},
+                {L"MEDIANEXTTRACK",VK_MEDIA_NEXT_TRACK},{L"MEDIAPREVIOUSTRACK",VK_MEDIA_PREV_TRACK},
+                {L"MEDIASTOP",VK_MEDIA_STOP},{L"MEDIAPLAYPAUSE",VK_MEDIA_PLAY_PAUSE}
+            };
+            for (const auto &entry : legacy) if (equal(name, entry.first)) result.key = entry.second;
         }
         require(result.key != 0, "Open OBS once to synchronize this shortcut");
         const std::pair<const wchar_t *, UINT> modifiers[] = {{L"alt",MOD_ALT},{L"control",MOD_CONTROL},{L"shift",MOD_SHIFT},{L"command",MOD_WIN}};

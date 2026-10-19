@@ -1,10 +1,12 @@
+[CmdletBinding(DefaultParameterSetName = 'Measure')]
 param(
-    [Parameter(Mandatory)][string]$NativeExe,
+    [Parameter(Mandatory, ParameterSetName = 'Measure')][string]$NativeExe,
+    [Parameter(Mandatory, ParameterSetName = 'Prepare')][switch]$PrepareOnly,
     [ValidateRange(3, 3600)][int]$Seconds = 60,
     [string]$OutputDirectory = "$PSScriptRoot/../build-benchmark"
 )
 $ErrorActionPreference = 'Stop'
-$NativeExe = (Resolve-Path -LiteralPath $NativeExe).Path
+if (!$PrepareOnly) { $NativeExe = (Resolve-Path -LiteralPath $NativeExe).Path }
 $root = [IO.Path]::GetFullPath($OutputDirectory)
 [IO.Directory]::CreateDirectory($root) | Out-Null
 $sourcePath = "$PSScriptRoot/../launcher/Launcher.cs"
@@ -56,6 +58,7 @@ $compiler = "$env:WINDIR/Microsoft.NET/Framework64/v4.0.30319/csc.exe"
 $icon = [IO.Path]::GetFullPath("$PSScriptRoot/../launcher/assets/obs-startup-assistant.ico")
 & $compiler /nologo /target:winexe /platform:x64 /optimize+ /codepage:65001 /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:Microsoft.CSharp.dll "/win32icon:$icon" "/resource:$icon,obs-startup-assistant.ico" "/out:$baselineExe" $baselineSource
 if ($LASTEXITCODE) { throw 'Cannot compile isolated baseline' }
+if ($PrepareOnly) { Write-Output $baselineExe; return }
 $children = @()
 try {
     foreach ($kind in @('legacy', 'native')) {

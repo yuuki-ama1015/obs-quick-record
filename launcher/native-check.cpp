@@ -35,6 +35,9 @@ bool runChecks()
         parse(LR"({"hotkey":[]})", 0, 0);
         parse(LR"({"hotkey":[{"alt":true,"key":"OBS_KEY_R"}]})", MOD_ALT, 'R');
         parse(LR"({"hotkey":[{"control":true,"key":"OBS_KEY_F24"}]})", MOD_CONTROL, VK_F24);
+        parse(LR"({"hotkey":[{"alt":true,"key":"OBS_KEY_NumPad5"}]})", MOD_ALT, VK_NUMPAD5);
+        parse(LR"({"hotkey":[{"control":true,"key":"OBS_KEY_OemMinus"}]})", MOD_CONTROL, VK_OEM_MINUS);
+        parse(LR"({"hotkey":[{"shift":true,"key":"OBS_KEY_Prior"}]})", MOD_SHIFT, VK_PRIOR);
         parse(LR"({"unrelated":"日本語 \"{}","launcherVirtualKey":82,"launcherModifiers":1})", MOD_ALT, 'R');
         for (int digit = 0; digit < 10; ++digit) {
             auto json = L"{\"hotkey\":[{\"alt\":true,\"key\":\"OBS_KEY_" + std::to_wstring(digit) + L"\"}]}";
@@ -48,6 +51,12 @@ bool runChecks()
         BindingCache cache; require(cache.read(settings) == Binding{}, "Missing settings default failed");
         writeFile(settings, R"({"launcherModifiers":6,"launcherVirtualKey":121})");
         require(cache.read(settings) == Binding{6,121}, "Changed binding not loaded");
+        const std::wstring utf16 = LR"({"launcherModifiers":1,"launcherVirtualKey":82})";
+        std::string encoded("\xFF\xFE");
+        for (auto value : utf16) { encoded += static_cast<char>(value & 255); encoded += static_cast<char>(value >> 8); }
+        writeFile(settings, encoded); require(cache.read(settings) == Binding{1,82}, "UTF-16 settings were not loaded");
+        writeFile(settings, R"({"launcherModifiers":6,"launcherVirtualKey":121})");
+        require(cache.read(settings) == Binding{6,121}, "UTF-8 settings were not restored");
         auto stamp = cache.stamp; require(cache.read(settings) == Binding{6,121} && CompareFileTime(&stamp, &cache.stamp) == 0, "Unchanged settings cache changed");
         writeFile(settings, "invalid");
         bool rejected = false; try { cache.read(settings); } catch (...) { rejected = true; }
