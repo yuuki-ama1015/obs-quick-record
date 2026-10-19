@@ -7,11 +7,15 @@
 #include <iostream>
 
 namespace assist {
-static DWORD run(const fs::path &application, std::wstring command, DWORD timeout = 30000)
+static HANDLE start(const fs::path &application, std::wstring command)
 {
     STARTUPINFOW info{sizeof(info)}; PROCESS_INFORMATION child{};
     winrt::check_bool(CreateProcessW(application.c_str(), command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &info, &child));
-    Handle process(child.hProcess), thread(child.hThread);
+    CloseHandle(child.hThread); return child.hProcess;
+}
+static DWORD run(const fs::path &application, std::wstring command, DWORD timeout = 30000)
+{
+    Handle process(start(application, std::move(command)));
     if (WaitForSingleObject(process.value, timeout) != WAIT_OBJECT_0) {
         TerminateProcess(process.value, 1); WaitForSingleObject(process.value, 5000);
         throw std::runtime_error("Test child process timed out");
@@ -94,12 +98,12 @@ bool runChecks()
         persisted.Reset(); shortcut.Reset(); setStartup(false, link, exe); setStartup(false, link, exe); require(!fs::exists(link), "Startup removal failed");
 
         auto script = root / L"remove.ps1";
-        writeFile(script, "\xEF\xBB\xBF" + utf8(removalScript(exe, MAXDWORD, false)));
+        writeFile(script, "\xEF\xBB\xBF" + utf8(removalScript(exe, MAXLONG, false)));
         writeFile(exe, readFile(exe) + "changed");
         auto powershell = folder(FOLDERID_System) / L"WindowsPowerShell/v1.0/powershell.exe";
         auto command = L"powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" + script.wstring() + L"\"";
         require(run(powershell, command) != 0 && fs::exists(exe), "Changed executable was removed");
-        writeFile(script, "\xEF\xBB\xBF" + utf8(removalScript(exe, MAXDWORD, false)));
+        writeFile(script, "\xEF\xBB\xBF" + utf8(removalScript(exe, MAXLONG, false)));
         require(run(powershell, command) == 0 && !fs::exists(exe) && fs::exists(installed / L"keep.txt"), "Safe removal failed");
 
         auto image = static_cast<HICON>(LoadImageW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(1), IMAGE_ICON, 16, 16, 0));
@@ -108,6 +112,20 @@ bool runChecks()
         require(run(executable(), L"\"" + executable().wstring() + L"\" --benchmark 3 \"" + report.wstring() + L"\"", 15000) == 0, "Isolated native loop failed");
         auto metrics = winrt::Windows::Data::Json::JsonObject::Parse(wide(readFile(report)));
         require(metrics.GetNamedNumber(L"elapsedMs") >= 3000 && metrics.GetNamedNumber(L"timerTicks") <= 4 && metrics.GetNamedNumber(L"processScans") <= 4, "Idle loop is spinning");
+        if (metrics.GetNamedBoolean(L"eventDriven")) require(metrics.GetNamedNumber(L"timerTicks") == 0, "Event-driven idle still polls");
+        auto actor = root / L"obs-qr-native-qa.exe"; fs::copy_file(executable(), actor);
+        auto eventsReport = root / L"events.json";
+        Handle observer(start(executable(), L"\"" + executable().wstring() + L"\" --benchmark 3 \"" + eventsReport.wstring() + L"\""));
+        const auto deadline = GetTickCount64() + 5000;
+        while (!fs::exists(eventsReport.wstring() + L".ready") && GetTickCount64() < deadline) Sleep(10);
+        require(fs::exists(eventsReport.wstring() + L".ready"), "Observer did not initialize");
+        require(run(actor, L"\"" + actor.wstring() + L"\" --window-event-check") == 0, "Window-event child failed");
+        require(WaitForSingleObject(observer.value, 10000) == WAIT_OBJECT_0, "Observer failed to stop"); observer.reset();
+        auto events = winrt::Windows::Data::Json::JsonObject::Parse(wide(readFile(eventsReport)));
+        if (events.GetNamedBoolean(L"eventDriven")) require(events.GetNamedNumber(L"processDetections") >= 1, "External process creation event was missed");
+        require(run(executable(), L"\"" + executable().wstring() + L"\" --benchmark-fallback 3 \"" + report.wstring() + L"\"") == 0, "Polling fallback failed");
+        metrics = winrt::Windows::Data::Json::JsonObject::Parse(wide(readFile(report)));
+        require(!metrics.GetNamedBoolean(L"eventDriven") && metrics.GetNamedNumber(L"timerTicks") >= 1 && metrics.GetNamedNumber(L"processScans") >= 2, "Polling fallback did not discover processes");
         require(GetModuleHandleW(L"clr.dll") == nullptr, "Native launcher loaded the CLR");
         fs::remove_all(root); std::cout << "Native shortcut parsing, atomic requests, log bounds, startup, removal and idle loop passed\n"; return true;
     } catch (const std::exception &error) {

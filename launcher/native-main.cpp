@@ -17,12 +17,30 @@ class Application {
     BindingCache bindings;
     Binding registered;
     bool ownsKey = false, hasBinding = false, benchmark = false;
+    const wchar_t *processName = L"obs64.exe";
     std::wstring lastError;
     Handle process;
     DWORD processId = 0, session = 0;
     HANDLE directoryChange = INVALID_HANDLE_VALUE;
+    HWINEVENTHOOK obsEvents = nullptr;
+    static inline Application *eventOwner = nullptr; // Out-of-context WinEvent callbacks run on this GUI thread.
     ULONGLONG nextScan = 0, pendingUntil = 0, started = GetTickCount64(), duration = 0;
-    unsigned scans = 0, ticks = 0;
+    unsigned scans = 0, ticks = 0, detections = 0;
+    static void CALLBACK obsWindowEvent(HWINEVENTHOOK, DWORD, HWND window, LONG object, LONG child, DWORD, DWORD)
+    {
+        auto *owner = eventOwner;
+        if (!owner || owner->processId || object != OBJID_WINDOW || child != CHILDID_SELF || !window) return;
+        wchar_t className[128]{};
+        if (!GetClassNameW(window, className, 128) || wcsncmp(className, L"Qt", 2) != 0) return;
+        DWORD pid = 0, candidateSession = 0;
+        GetWindowThreadProcessId(window, &pid);
+        if (!ProcessIdToSessionId(pid, &candidateSession) || candidateSession != owner->session) return;
+        Handle process(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid));
+        wchar_t path[32768]{}; DWORD length = 32768;
+        if (process && QueryFullProcessImageNameW(process.value, 0, path, &length) &&
+            _wcsicmp(fs::path(path).filename().c_str(), owner->processName) == 0)
+            PostMessageW(owner->window, WM_APP + 2, 0, 0);
+    }
     static LRESULT CALLBACK procedure(HWND window, UINT message, WPARAM wp, LPARAM lp)
     {
         auto *self = reinterpret_cast<Application *>(GetWindowLongPtrW(window, GWLP_USERDATA));
@@ -71,12 +89,13 @@ class Application {
         winrt::check_bool(static_cast<bool>(snapshot));
         PROCESSENTRY32W entry{sizeof(entry)};
         for (BOOL found = Process32FirstW(snapshot.value, &entry); found; found = Process32NextW(snapshot.value, &entry)) {
-            if (benchmark || _wcsicmp(entry.szExeFile, L"obs64.exe") != 0) continue;
+            if (_wcsicmp(entry.szExeFile, processName) != 0) continue;
             DWORD candidateSession = 0;
             if (!ProcessIdToSessionId(entry.th32ProcessID, &candidateSession) || candidateSession != session) continue;
             Handle candidate(OpenProcess(SYNCHRONIZE, FALSE, entry.th32ProcessID));
             if (candidate && WaitForSingleObject(candidate.value, 0) != WAIT_TIMEOUT) continue;
             processId = entry.th32ProcessID;
+            ++detections;
             process.reset(candidate.value); candidate.value = nullptr;
             return true; // Access denied still counts as running; fall back to discovery polling.
         }
@@ -109,7 +128,8 @@ class Application {
             }
         } catch (const std::exception &exception) { releaseKey(); error(wide(exception.what())); }
         // No periodic work for a known running OBS after it consumes the request.
-        timer(pendingUntil ? 500 : (running && process ? 0 : 2000));
+        const bool eventDriven = running ? static_cast<bool>(process) : obsEvents && directoryChange != INVALID_HANDLE_VALUE;
+        timer(pendingUntil ? 500 : eventDriven ? 0 : 2000);
     }
     void launch()
     {
@@ -165,15 +185,18 @@ class Application {
         std::ostringstream json;
         json << "{\"elapsedMs\":" << GetTickCount64() - started << ",\"cpu100ns\":" << time(kernel) + time(user)
              << ",\"workingSet\":" << memory.WorkingSetSize << ",\"privateBytes\":" << memory.PrivateUsage
-             << ",\"processScans\":" << scans << ",\"timerTicks\":" << ticks << "}";
+             << ",\"processScans\":" << scans << ",\"timerTicks\":" << ticks << ",\"processDetections\":" << detections
+             << ",\"eventDriven\":" << (obsEvents && directoryChange != INVALID_HANDLE_VALUE ? "true" : "false") << "}";
         writeFile(report, json.str());
     }
     LRESULT message(HWND target, UINT message, WPARAM wp, LPARAM lp)
     {
         if (message == taskbarCreated && !benchmark) { addTray(); return 0; }
         if (message == WM_HOTKEY && wp == 1) { launch(); return 0; }
+        if (message == WM_APP + 2) { refresh(true); return 0; }
         if (message == trayMessage && (LOWORD(lp) == WM_CONTEXTMENU || LOWORD(lp) == NIN_KEYSELECT)) { menu(); return 0; }
         if (message == WM_TIMER) {
+            if (benchmark && wp == 2) { benchmarkReport(); DestroyWindow(target); return 0; }
             ++ticks;
             if (benchmark && GetTickCount64() - started >= duration) { benchmarkReport(); DestroyWindow(target); }
             else refresh();
@@ -185,9 +208,10 @@ class Application {
         return DefWindowProcW(target, message, wp, lp);
     }
 public:
-    Application(fs::path directory, bool benchmark = false, ULONGLONG duration = 0, fs::path report = {})
+    Application(fs::path directory, bool benchmark = false, ULONGLONG duration = 0, fs::path report = {}, bool forcePolling = false)
         : config(std::move(directory)), request(config / L"launch-request.txt"), settings(config / L"settings.json"), report(std::move(report)), benchmark(benchmark), duration(duration)
     {
+        if (benchmark) processName = L"obs-qr-native-qa.exe";
         ProcessIdToSessionId(GetCurrentProcessId(), &session); fs::create_directories(config);
         WNDCLASSW type{}; type.hInstance = GetModuleHandleW(nullptr); type.lpfnWndProc = procedure; type.lpszClassName = L"OBSQuickRecordLauncherWindow";
         require(RegisterClassW(&type) != 0, "Cannot register launcher window");
@@ -199,9 +223,16 @@ public:
         }
         directoryChange = FindFirstChangeNotificationW(config.c_str(), FALSE, FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_SIZE);
         refresh(true);
+        eventOwner = this;
+        if (!forcePolling) obsEvents = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_SHOW, nullptr, obsWindowEvent, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+        refresh();
+        if (benchmark) winrt::check_bool(SetTimer(window, 2, static_cast<UINT>(duration), nullptr) != 0);
     }
     ~Application()
     {
+        eventOwner = nullptr;
+        if (obsEvents) UnhookWinEvent(obsEvents);
+        if (benchmark) KillTimer(window, 2);
         if (timerInterval) KillTimer(window, 1);
         releaseKey();
         if (!benchmark) Shell_NotifyIconW(NIM_DELETE, &tray);
@@ -241,13 +272,22 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
         winrt::init_apartment(winrt::apartment_type::single_threaded);
         SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         if (args.size() == 2 && args[1] == L"--check") return assist::runChecks() ? 0 : 1;
-        if (args.size() == 4 && args[1] == L"--benchmark") {
+        if (args.size() == 2 && args[1] == L"--window-event-check") {
+            WNDCLASSW type{}; type.hInstance = GetModuleHandleW(nullptr); type.lpfnWndProc = DefWindowProcW; type.lpszClassName = L"QtQuickRecordNativeTest";
+            assist::require(RegisterClassW(&type) != 0, "Cannot create event test class");
+            HWND window = CreateWindowExW(WS_EX_TOOLWINDOW, type.lpszClassName, L"event test", 0, 0, 0, 0, 0, nullptr, nullptr, type.hInstance, nullptr);
+            winrt::check_bool(window != nullptr);
+            NotifyWinEvent(EVENT_OBJECT_SHOW, window, OBJID_WINDOW, CHILDID_SELF);
+            Sleep(600); DestroyWindow(window); return 0;
+        }
+        if (args.size() == 4 && (args[1] == L"--benchmark" || args[1] == L"--benchmark-fallback")) {
             GUID id{}; winrt::check_hresult(CoCreateGuid(&id)); wchar_t guid[40]{}; StringFromGUID2(id, guid, 40);
             auto directory = assist::fs::temp_directory_path() / (L"obs-quick-record-benchmark-" + std::wstring(guid));
             assist::require(assist::fs::create_directory(directory), "Cannot create benchmark directory");
             try {
                 assist::writeFile(directory / L"settings.json", "{\"launcherModifiers\":1,\"launcherVirtualKey\":82}");
-                { assist::Application app(directory, true, std::stoull(args[2]) * 1000, args[3]); app.run(false); }
+                auto seconds = std::stoull(args[2]); assist::require(seconds >= 1 && seconds <= 3600, "Invalid benchmark duration");
+                { assist::Application app(directory, true, seconds * 1000, args[3], args[1] == L"--benchmark-fallback"); assist::writeFile(args[3] + L".ready", "ready"); app.run(false); }
                 assist::fs::remove_all(directory); return 0;
             } catch (...) { assist::fs::remove_all(directory); throw; }
         }

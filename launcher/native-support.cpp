@@ -225,8 +225,19 @@ Binding BindingCache::read(const fs::path &path)
     Binding parsed;
     if (exists) {
         auto bytes = readFile(path);
-        if (bytes.rfind("\xEF\xBB\xBF", 0) == 0) bytes.erase(0, 3);
-        parsed = parseBinding(wide(bytes));
+        if (bytes.rfind("\xFF\xFE", 0) == 0 || bytes.rfind("\xFE\xFF", 0) == 0) {
+            require(bytes.size() % 2 == 0, "Invalid UTF-16 settings");
+            const bool little = static_cast<unsigned char>(bytes[0]) == 0xFF;
+            std::wstring json;
+            for (size_t offset = 2; offset < bytes.size(); offset += 2) {
+                auto a = static_cast<unsigned char>(bytes[offset]), b = static_cast<unsigned char>(bytes[offset + 1]);
+                json += static_cast<wchar_t>(little ? a | (b << 8) : (a << 8) | b);
+            }
+            parsed = parseBinding(json);
+        } else {
+            if (bytes.rfind("\xEF\xBB\xBF", 0) == 0) bytes.erase(0, 3);
+            parsed = parseBinding(wide(bytes));
+        }
     }
     value = parsed; cached = true; existed = exists; size = length; stamp = info.ftLastWriteTime; return value;
 }
