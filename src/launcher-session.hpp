@@ -37,7 +37,10 @@ public:
 private:
     bool eventFilter(QObject *object, QEvent *event) override
     {
-        if (object == window && (event->type() == QEvent::Show || event->type() == QEvent::WindowActivate)) retain();
+        // Qt can activate a hidden owner while an independent tool is focused.
+        // Such an event does not mean the user restored OBS.
+        if (object == window && (event->type() == QEvent::Show ||
+            (event->type() == QEvent::WindowActivate && window && window->isVisible()))) retain();
         return false;
     }
     std::function<bool()> busy;

@@ -6,6 +6,7 @@
 #include <QCloseEvent>
 #include <QEventLoop>
 #include "launcher-session.hpp"
+#include "foreground-safety.hpp"
 class MainWindow : public QWidget {
 public:
     int closes = 0;
@@ -58,4 +59,30 @@ int main(int argc, char **argv)
     session.claim(&main); session.complete(); session.retain(); wait(); assert(main.closes == 1); // Shutdown cancels queued close.
     busy = true; session.claim(&main); session.complete(); wait(); assert(main.closes == 1);
     busy = false; wait(); assert(main.closes == 2); // A startup/settings dialog delays initial ownership, never loses it.
+    {
+        MainWindow hidden;
+        LauncherSession activation([] { return false; });
+        activation.claim(&hidden);
+        QEvent activated(QEvent::WindowActivate);
+        QCoreApplication::sendEvent(&hidden, &activated);
+        activation.complete(); wait();
+        assert(hidden.closes == 1); // Hidden owner activation must not cancel automatic exit.
+    }
+    {
+        QWidget foreground;
+        const void *mainHandle = reinterpret_cast<const void *>(1);
+        const void *otherHandle = reinterpret_cast<const void *>(2);
+        assert(!isMainWindowForeground(nullptr, mainHandle, mainHandle));
+        assert(!isMainWindowForeground(&foreground, mainHandle, mainHandle));
+        foreground.show();
+        assert(isMainWindowForeground(&foreground, mainHandle, mainHandle));
+        assert(!isMainWindowForeground(&foreground, otherHandle, mainHandle));
+        assert(!isMainWindowForeground(&foreground, nullptr, nullptr));
+        foreground.showMinimized();
+        assert(!isMainWindowForeground(&foreground, mainHandle, mainHandle));
+        foreground.showNormal();
+        assert(isMainWindowForeground(&foreground, mainHandle, mainHandle));
+        foreground.hide();
+        assert(!isMainWindowForeground(&foreground, mainHandle, mainHandle));
+    }
 }

@@ -7,6 +7,7 @@
 #include <QApplication>
 #include <util/bmem.h>
 #include "launcher-request.hpp"
+#include "foreground-safety.hpp"
 QuickRecordController::QuickRecordController() : launcherSession([this] {
     if (shuttingDown || state != QuickRecordState::Idle || pending || externalRecording ||
         obs_frontend_recording_active() || obs_frontend_streaming_active() ||
@@ -188,7 +189,9 @@ void QuickRecordController::toggle()
     if (pending) { if (requested) capture.stop(); else finish(); return; }
     if (externalRecording || obs_frontend_recording_active()) { notify("AlreadyRecording"); return; }
     if (obs_frontend_streaming_active() || obs_frontend_replay_buffer_active() || obs_frontend_virtualcam_active()) { notify("OtherOutput"); return; }
-    if (settings.foregroundSafety && GetAncestor(GetForegroundWindow(), GA_ROOTOWNER) == obs_frontend_get_main_window_handle()) return;
+    if (settings.foregroundSafety && isMainWindowForeground(
+            static_cast<QWidget *>(obs_frontend_get_main_window()),
+            GetAncestor(GetForegroundWindow(), GA_ROOTOWNER), obs_frontend_get_main_window_handle())) return;
     if (state != QuickRecordState::Idle) return;
     if (settingsWindow && settingsWindow->isVisible()) return;
     state = QuickRecordState::Selecting;
