@@ -569,3 +569,13 @@ Win32起動アシストは独立試作で、親CMakeと配布ZIPはまだC#版�
 このPCではtests/installer-check.ps1が再び成功し、全PowerShellファイルの構文解析とgit diff --checkが成功した。tests/measure-assistant.ps1 -PrepareOnlyでC#比較用EXEの生成に成功し、--benchmark 5で専用一時設定のみを使う計測の正常終了を確認した。単発値は約40.4MiB working set / 30.4MiB private、起動を含む累積CPU約297msで、Win32版の比較値や改善率を示すものではない。
 
 Windows buildとNative assistant checkは2022実行環境の割り当て待ちが続いた。独立検証を2025へ手動依頼したrun 39284005416も、確認時点ではrunner名なし・queued。追加C++コードのコンパイル、CTest、候補ZIPの実物検査、新旧性能比較は未完了。CIに古い同ブランチの重複検証を集約するconcurrencyを追加した。再開時は最新コミットのCI結果を確認し、失敗修正後に再実行する。ネイティブ版の採用はビルド・自己テスト・実測比較後に判断する。main・Release・PCは更新していない。
+
+### 2026-10-20 0.1.5公開候補の検証完了
+
+機能修正の最終コミット5000995。ネイティブ版の依頼置換競合、Startupリンクの表記比較、PowerShellヘルパーのPSModulePath依存を修正。MSVC 2025側で検出した旧coroutineヘッダー依存はC++20へ移行して解消した。ネイティブ版を親CMakeの通常配布構成へ採用し、旧C#版は比較用テストソースへ移した。
+
+[Native assistant check 39372161707](https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/39372161707)でビルド、自己テスト、15秒の隔離比較に成功。[Windows build 39372161640](https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/39372161640)でMSVCビルド・全9テスト成功（70.32秒）、配布ZIPの許可10ファイル・ソース/ビルドとのSHA-256一致を確認した。このPCで取得したZIPも同じ検査に成功し、SHA-256はE558EA8E825F68EA07F5002A2B1A1DD992AF2CC5F5FB0C89C763708F543B3677。
+
+このPCの通常Windows環境でネイティブ自己テストを再実行して成功。60秒の隔離比較を3回実施し、working setは旧版44.72/44.68/44.81MiB、ネイティブ版10.83/10.82/10.82MiB。private bytesは旧版30.74/30.70/30.88MiB、ネイティブ版1.55/1.52/1.54MiB。累積CPUは旧版187.5/250/250ms、ネイティブ版31.25/31.25/31.25ms。ネイティブ版は3回とも周期タイマー0回、初期プロセス探索2回。比較用には実キー・通知領域・通常設定・実OBSを使わず、CPU時間は起動処理を含む。実録画の速度改善率は測っていない。
+
+日英locale・使い方・導入スクリプト・LICENSEを含み、開発文書・個人設定・私的メモ・録画を配布しない。実録画・高DPIの再受入は未実施。正式公開とPC更新はユーザーから承認済みで、この検証済みZIPを使って進める。

@@ -93,3 +93,5 @@ OBS不在の待機測定は旧導入版/最新版を各60秒×2回、起動後10
 追加改善の続きはfeat/performance-hardeningから再開する。UAC中のスクリプト再読とコピー元変更の防止、アトミックな起動依頼、ログ上限、設定の重複保存省略、初回依頼の即時確認、録画準備・ホバー・静止ドラッグの探索削減、長時間REC表示を修正した。機能修正の最終コミット316c24a、Windows CI 39219529567でビルド・全9テスト・ZIP生成成功。詳細と延期項目はdocs/performance-review.md、検証記録はdocs/testing.md末尾を読む。main・Release・PCへの反映と実機性能比較はまだ行っていない。
 
 2026-10-20、残りの改善を同ブランチで実装中。REC表示の遅延生成、SDKキャッシュ/LTO、配布から開発文書の除外、サイズ表示の直接描画、選択中だけのWinEvent監視を追加した。Win32起動アシストはlauncher/native-*.cppの独立試作で、親CMakeと配布物はまだC#版。Windows CIの2022/2025とも実行環境の割り当て待ち。Native assistant checkのビルド・自己テスト・比較測定とWindows build全テストが通るまで配布構成へ切り替えない。tests/measure-assistant.ps1で既存アプリを停止せず隔離比較できる。詳しい再開条件はdocs/performance-review.md末尾。
+
+その後、機能修正5000995でWin32版を通常配布構成に採用し、0.1.5候補の検証を完了した。Native assistant check 39372161707とWindows build 39372161640が成功し、全9テスト・許可10ファイルのZIP検査に合格。このPCでも自己テストと60秒の新旧隔離比較を3回実行した。working set中央値は約44.72→10.82MiB。旧C#版はtests/legacy-assistant.csに比較用としてのみ残す。ZIP SHA-256はE558EA8E825F68EA07F5002A2B1A1DD992AF2CC5F5FB0C89C763708F543B3677。正式公開とPC更新はユーザー承認済み。最終反映状態はdocs/testing.md末尾を参照する。

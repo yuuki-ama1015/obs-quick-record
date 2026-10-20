@@ -72,4 +72,12 @@ Audited official OBS 32.2.2, commit `ba2f32bdf791005443988a4955e963663e16b1ed`:
 
 The feature does not reserve OBS outputs against arbitrary concurrent reconfiguration by other plugins. File-size savings depend on content/codec; unchanged audio remains a fixed contributor. Native OBS recordings after restoration retain their previous dimensions and frame rate. This does not repair selection-to-canvas stretching already present in Quick Record.
 
+## Native startup assistant (0.1.5)
+
+The assistant is a standalone C++20 Win32 executable with a static CRT and one native icon resource. It uses Windows.Data.Json for complete JSON parsing, preserving the exported virtual key and older OBS bindings. The old managed implementation exists only as an isolated benchmark fixture in tests/legacy-assistant.cs.
+
+The UI thread waits on a known OBS process handle, directory-change notifications, and its Windows message queue. A selection-only WinEvent observer detects an externally started Qt OBS window; an initial scan after hook installation closes the setup race. Missing notifications, inaccessible processes, and failed shortcut registration retain a two-second discovery fallback. Pending launch requests use a 500ms check with a 60-second deadline. Multiple OBS processes are rescanned after a tracked process exits. A mutex prevents duplicate assistants; it does not determine OBS availability.
+
+Requests use ReplaceFile for replacement and a same-directory move for first publication. No partial request is published. The original Startup link, configuration paths, tray operations, and guarded uninstall flow remain compatible. The short-lived removal helper uses .NET APIs instead of module autoloading. No custom encoder, global video reset, or Auto Stop dependency is added.
+
 Observed with OBS 32.2.2 H.264/MKV: packet timestamps advance by about 1/30 s, but ffprobe r_frame_rate/avg_frame_rate still report the global 60 fps. [obs-ffmpeg-mux.c](https://github.com/obsproject/obs-studio/blob/32.2.2/plugins/obs-ffmpeg/obs-ffmpeg-mux.c), `add_video_encoder_params`, takes metadata fps from `obs_get_video`, not the recording encoder's divisor-adjusted video. Preserve the standard OBS output and document this metadata limitation instead of changing OBS or postprocessing user recordings. Other output formats require their own verification.
