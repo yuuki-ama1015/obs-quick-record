@@ -7,15 +7,22 @@
 #include <iostream>
 
 namespace assist {
-static HANDLE start(const fs::path &application, std::wstring command)
+static HANDLE start(const fs::path &application, std::wstring command, HANDLE output = nullptr)
 {
     STARTUPINFOW info{sizeof(info)}; PROCESS_INFORMATION child{};
-    winrt::check_bool(CreateProcessW(application.c_str(), command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &info, &child));
+    if (output) { info.dwFlags = STARTF_USESTDHANDLES; info.hStdInput = GetStdHandle(STD_INPUT_HANDLE); info.hStdOutput = output; info.hStdError = output; }
+    winrt::check_bool(CreateProcessW(application.c_str(), command.data(), nullptr, nullptr, output != nullptr, CREATE_NO_WINDOW, nullptr, nullptr, &info, &child));
     CloseHandle(child.hThread); return child.hProcess;
 }
-static DWORD run(const fs::path &application, std::wstring command, DWORD timeout = 30000)
+static DWORD run(const fs::path &application, std::wstring command, DWORD timeout = 30000, const fs::path &diagnostics = {})
 {
-    Handle process(start(application, std::move(command)));
+    Handle output;
+    if (!diagnostics.empty()) {
+        SECURITY_ATTRIBUTES security{sizeof(security), nullptr, TRUE};
+        output.reset(CreateFileW(diagnostics.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, &security, CREATE_ALWAYS, 0, nullptr));
+        winrt::check_bool(static_cast<bool>(output));
+    }
+    Handle process(start(application, std::move(command), output.value));
     if (WaitForSingleObject(process.value, timeout) != WAIT_OBJECT_0) {
         TerminateProcess(process.value, 1); WaitForSingleObject(process.value, 5000);
         throw std::runtime_error("Test child process timed out");
@@ -122,7 +129,10 @@ bool runChecks()
         auto command = L"powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" + script.wstring() + L"\"";
         require(run(powershell, command) != 0 && fs::exists(exe), "Changed executable was removed");
         writeFile(script, "\xEF\xBB\xBF" + utf8(removalScript(exe, MAXLONG, false)));
-        require(run(powershell, command) == 0 && !fs::exists(exe) && fs::exists(installed / L"keep.txt"), "Safe removal failed");
+        const auto diagnostics = root / L"removal-output.txt";
+        const auto removed = run(powershell, command, 30000, diagnostics);
+        if (removed) throw std::runtime_error("Removal helper failed: " + readFile(diagnostics));
+        require(!fs::exists(exe) && fs::exists(installed / L"keep.txt"), "Safe removal failed");
 
         auto image = static_cast<HICON>(LoadImageW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(1), IMAGE_ICON, 16, 16, 0));
         std::cerr << "Native checks: icon and idle loop\n";

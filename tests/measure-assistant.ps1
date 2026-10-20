@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Stop'
 if (!$PrepareOnly) { $NativeExe = (Resolve-Path -LiteralPath $NativeExe).Path }
 $root = [IO.Path]::GetFullPath($OutputDirectory)
 [IO.Directory]::CreateDirectory($root) | Out-Null
-$sourcePath = "$PSScriptRoot/../launcher/Launcher.cs"
+$sourcePath = "$PSScriptRoot/legacy-assistant.cs"
 $source = [IO.File]::ReadAllText($sourcePath).Replace("`r`n", "`n")
 # Compile an isolated copy of the previous implementation. No real hotkeys,
 # tray icon, user configuration, Startup link or installed OBS process is touched.
