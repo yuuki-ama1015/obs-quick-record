@@ -109,3 +109,5 @@ OBS不在の待機測定は旧導入版/最新版を各60秒×2回、起動後10
 test/acceptance-0.1.5の71512aeで、非表示のOBS本体へのWindowActivateが自動終了を誤って解除する不具合と前面判定を修正した。隔離OBSでキャンセル・手動停止・Auto Stop停止後の正常終了を確認し、Windows/NativeのCIも成功。実機録画試験の結果と未確認条件はdocs/acceptance-2026-10-20.mdにまとめた。テスト用acceptance-driver.dllは配布・常設導入しない。
 
 ユーザーの反映指示により0.1.6として公開とPC更新を進める。正常な録画8本のデコードや自動終了の確認を、未試験の異種DPI・リサイズ・遮蔽・再ログインまで拡張しない。公開・PC更新の最終状態はdocs/testing.md末尾で確認する。
+
+追加指示の枠付きアイコンを含む34db6feで、Windows CI 39447895801とNative CI 39447895888が成功し、0.1.6を正式公開・PC導入済み。唯一のRelease添付obs-quick-record.zipのSHA-256はAE34DEC54D584EB8FC3B0295C375D02FB43F2F6DDFBD4162B1DAA6ECEE305A12。公開再取得・PCのDLL/EXE/日英locale一致・既存設定保持・直接Startup参照・Alt+R再登録を確認した。旧Releaseのタグ/ソース履歴は残す。残りの試験条件はdocs/acceptance-2026-10-20.md、公開と導入の根拠はdocs/testing.md末尾を参照する。
