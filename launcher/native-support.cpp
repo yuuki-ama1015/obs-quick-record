@@ -91,7 +91,14 @@ void writeRequest(const fs::path &path, DWORD pid)
     auto temporary = path; temporary += L"." + uniqueName() + L".tmp";
     try {
         writeFile(temporary, std::to_string(pid) + "\nexit-after-capture");
-        winrt::check_bool(MoveFileExW(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING));
+        // MoveFileEx(REPLACE_EXISTING) can fail with ACCESS_DENIED while a reader
+        // holds the destination, even with FILE_SHARE_DELETE. ReplaceFile keeps
+        // publication atomic for those readers (the same API as .NET File.Replace).
+        if (!ReplaceFileW(path.c_str(), temporary.c_str(), nullptr, 0, nullptr, nullptr)) {
+            const auto reason = GetLastError();
+            if (reason != ERROR_FILE_NOT_FOUND) winrt::throw_hresult(HRESULT_FROM_WIN32(reason));
+            winrt::check_bool(MoveFileExW(temporary.c_str(), path.c_str(), 0));
+        }
     } catch (...) { DeleteFileW(temporary.c_str()); throw; }
 }
 void appendLog(const fs::path &path, const std::wstring &message)
