@@ -109,7 +109,9 @@ bool runChecks()
         wchar_t target[32768]{}, directory[32768]{};
         winrt::check_hresult(shortcut->GetPath(target, 32768, nullptr, SLGP_RAWPATH));
         winrt::check_hresult(shortcut->GetWorkingDirectory(directory, 32768));
-        require(fs::path(target) == exe && fs::path(directory) == installed, "Startup link target differs");
+        // ShellLink canonicalizes drive/path casing. Compare the actual files,
+        // not the spelling of paths on Windows' case-insensitive filesystem.
+        require(fs::equivalent(target, exe) && fs::equivalent(directory, installed), "Startup link target differs");
         persisted.Reset(); shortcut.Reset(); setStartup(false, link, exe); setStartup(false, link, exe); require(!fs::exists(link), "Startup removal failed");
 
         auto script = root / L"remove.ps1";
