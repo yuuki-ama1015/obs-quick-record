@@ -1,7 +1,7 @@
 # GitHubから開発を再開する
 
-更新日：2026-10-13。対象はWindows用OBS Quick Record 0.1.4です。未確認の実機条件があり、MVP受入完了とは宣言していません。
-設定画面と容量優先モードの検証状況はこの文書末尾とdocs/testing.mdを参照してください。
+更新日：2026-10-20。対象はWindows用OBS Quick Record 0.1.5です。main・正式Release・このPCへの導入を完了しました。未確認の実機条件があり、MVP受入完了とは宣言していません。
+ネイティブ起動アシスト、設定画面、容量優先モードの検証状況はこの文書末尾とdocs/testing.mdを参照してください。
 
 ## 再開の入口
 
@@ -34,11 +34,11 @@
 - src/capture-controller.cpp：標準ソース、一時シーン、準備、停止後の復旧。
 - src/quick-record-overlay.cpp、各selector：物理座標での選択、ハイライト、Qt画面。
 - src/settings-window.cpp、src/hotkey-manager.cpp、src/settings.cpp：独立設定、OBSホットキー、保存。
-- launcher/Launcher.cs、launcher/setup.ps1、launcher/install.ps1：通常権限の起動アシストと導入。
+- launcher/native-main.cpp、launcher/native-support.cpp、launcher/setup.ps1、launcher/install.ps1：通常権限の起動アシストと導入。旧C#版はtests/legacy-assistant.csに比較用としてだけ残す。
 
 Source ID/setting keyを変更する場合は、tools/prepare-sdk.ps1が取得するOBS 32.2.2ソースで根拠を再確認する。推測でキーを書かない。Qt GUIはGUIスレッドで操作し、出力信号、Frontendイベント、ホットキーの解除とOBS参照カウントを守る。
 
-## 最新の検証と次の作業
+## 過去の検証と継続する実機確認
 
 レビュー修正は4d1b3d1、8b06346、de9b56f、PC導入記録はd63276a。MSVCビルドとCTest全8件に成功（65.69秒）。mainとタグのWindows CI 37201755411/37201866343も成功。録画結果の異常/不明、信号通知順、一時busy所有権、設定保存失敗、キャッシュ、描画停止/破棄、インストール境界を試験している。
 
@@ -95,3 +95,11 @@ OBS不在の待機測定は旧導入版/最新版を各60秒×2回、起動後10
 2026-10-20、残りの改善を同ブランチで実装中。REC表示の遅延生成、SDKキャッシュ/LTO、配布から開発文書の除外、サイズ表示の直接描画、選択中だけのWinEvent監視を追加した。Win32起動アシストはlauncher/native-*.cppの独立試作で、親CMakeと配布物はまだC#版。Windows CIの2022/2025とも実行環境の割り当て待ち。Native assistant checkのビルド・自己テスト・比較測定とWindows build全テストが通るまで配布構成へ切り替えない。tests/measure-assistant.ps1で既存アプリを停止せず隔離比較できる。詳しい再開条件はdocs/performance-review.md末尾。
 
 その後、機能修正5000995でWin32版を通常配布構成に採用し、0.1.5候補の検証を完了した。Native assistant check 39372161707とWindows build 39372161640が成功し、全9テスト・許可10ファイルのZIP検査に合格。このPCでも自己テストと60秒の新旧隔離比較を3回実行した。working set中央値は約44.72→10.82MiB。旧C#版はtests/legacy-assistant.csに比較用としてのみ残す。ZIP SHA-256はE558EA8E825F68EA07F5002A2B1A1DD992AF2CC5F5FB0C89C763708F543B3677。正式公開とPC更新はユーザー承認済み。最終反映状態はdocs/testing.md末尾を参照する。
+
+## 2026-10-20 正式公開・PC導入の完了
+
+[v0.1.5](https://github.com/yuuki-ama1015/obs-quick-record/releases/tag/v0.1.5)を正式公開し、Releaseは最新版1件、添付はobs-quick-record.zipだけに整理した。公開ZIPを再取得して上記SHA-256と一致し、許可10ファイルの内容検査にも合格した。旧ReleaseのGitタグとソース履歴は保持する。
+
+このPCの通常配置へDLL・ネイティブ起動アシスト・日英localeを導入し、4ファイルすべて配布物と一致した。既存設定22件は導入直後にハッシュ不変、自動起動は引数なしで導入先EXEを直接参照する。導入済みEXEの--launchから通常版OBS 32.2.2を最小化起動し、依頼消費・選択UIの表示・マウスによるキャンセル・OBS正常終了・起動アシストのAlt+R再登録を確認した。OBS終了ログのメモリリークは0件。録画は開始していない。詳細と設定の終了時書き込みはdocs/testing.md末尾に記録した。
+
+次は最新版の実キーからの録画・手動/Auto Stop停止・再起動、録画エラー保持、各DPI/キャプチャ方式、Windows 10/別ユーザー等の未確認条件を実施する。今回の起動・キャンセル確認や隔離ベンチマークを全録画フローの合格として扱わない。
