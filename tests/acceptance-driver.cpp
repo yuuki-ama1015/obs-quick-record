@@ -10,6 +10,7 @@
 #include <QPointer>
 #include <QTimer>
 #include <QWidget>
+#include <cstring>
 
 OBS_DECLARE_MODULE()
 
@@ -43,6 +44,8 @@ public:
                     return false;
                 }, nullptr);
             } else if (command == "stop") obs_frontend_recording_stop();
+            else if (command == "show" && main) main->showNormal();
+            else if (command == "hide" && main) main->hide();
             else if (command == "exit" && !obs_frontend_recording_active() && main) main->close();
         });
         commands.start(300);
