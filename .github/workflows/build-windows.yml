@@ -45,6 +45,8 @@ jobs:
           name: settings-ui-check
           path: |
             build/hotkey-check.exe
+            build/capture-target.exe
+            build/acceptance-driver.dll
             build/Testing/Temporary/LastTest.log
             .deps/qt/plugins/platforms/qminimal.dll
           include-hidden-files: true
