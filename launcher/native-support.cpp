@@ -168,21 +168,30 @@ std::wstring removalScript(const fs::path &exe, DWORD parentId, bool showResult)
         L"\n$success=" + quotePs(text(L"OBS起動アシストを削除しました。プラグインと設定は保持しています。", L"OBS startup assistant removed. The plugin and settings are retained.")) +
         L"\n$failure=" + quotePs(text(L"OBS起動アシストの削除に失敗しました。", L"Could not remove OBS startup assistant.")) + LR"(
 try {
-    $parent=Get-Process -Id $parentId -ErrorAction SilentlyContinue
+    $parent=$null
+    try { $parent=[Diagnostics.Process]::GetProcessById($parentId) } catch [ArgumentException] {}
     if ($parent) {
-        if ($parent.Path -ne $exe) { throw 'The process no longer matches the Launcher.' }
-        if (!$parent.WaitForExit(15000)) { throw 'The Launcher did not exit.' }
+        try {
+            if (!$parent.HasExited) {
+                if ($parent.MainModule.FileName -ne $exe) { throw 'The process no longer matches the Launcher.' }
+                if (!$parent.WaitForExit(15000)) { throw 'The Launcher did not exit.' }
+            }
+        } finally { $parent.Dispose() }
     }
-    if ((Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash -ne $expectedHash) { throw 'The file changed; removal canceled.' }
+    $sha=[Security.Cryptography.SHA256]::Create()
+    $stream=[IO.File]::OpenRead($exe)
+    try { $actualHash=[BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '') }
+    finally { $stream.Dispose(); $sha.Dispose() }
+    if ($actualHash -ne $expectedHash) { throw 'The file changed; removal canceled.' }
     [IO.File]::Delete($exe)
-    $folder=Split-Path -Parent $exe
-    if ((Get-ChildItem -LiteralPath $folder -Force | Measure-Object).Count -eq 0) { [IO.Directory]::Delete($folder, $false) }
-    if ($showResult) { Add-Type -AssemblyName System.Windows.Forms; [void][Windows.Forms.MessageBox]::Show($success, 'OBS startup assistant') }
+    $folder=[IO.Path]::GetDirectoryName($exe)
+    if ([IO.Directory]::GetFileSystemEntries($folder).Length -eq 0) { [IO.Directory]::Delete($folder, $false) }
+    if ($showResult) { [void][Reflection.Assembly]::Load('System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'); [void][Windows.Forms.MessageBox]::Show($success, 'OBS startup assistant') }
 } catch {
     [Console]::Error.WriteLine($_.Exception.Message)
-    if ($showResult) { Add-Type -AssemblyName System.Windows.Forms; [void][Windows.Forms.MessageBox]::Show($failure + [Environment]::NewLine + $_.Exception.Message, 'OBS startup assistant') }
+    if ($showResult) { [void][Reflection.Assembly]::Load('System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'); [void][Windows.Forms.MessageBox]::Show($failure + [Environment]::NewLine + $_.Exception.Message, 'OBS startup assistant') }
     exit 1
-} finally { Remove-Item -LiteralPath $PSCommandPath -ErrorAction SilentlyContinue }
+} finally { try { [IO.File]::Delete($PSCommandPath) } catch {} }
 )";
 }
 void startRemoval(const fs::path &exe, DWORD parentId, bool showResult)
