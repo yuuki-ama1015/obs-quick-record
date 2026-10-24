@@ -17,7 +17,6 @@ public:
         retry.setInterval(500);
         deadline.setSingleShot(true);
         deadline.setTimerType(Qt::PreciseTimer);
-        connect(&changes, &QFileSystemWatcher::directoryChanged, this, [this] { check(); });
         connect(&retry, &QTimer::timeout, this, [this] { check(); });
         connect(&deadline, &QTimer::timeout, this, [this] { stop(); });
     }
@@ -31,6 +30,8 @@ public:
         pid = processId;
         timeout = timeoutMs;
         waiting = true;
+        changes = new QFileSystemWatcher(this);
+        connect(changes, &QFileSystemWatcher::directoryChanged, this, [this] { check(); });
         elapsed.start();
         deadline.start(timeout);
         if (!watchDirectory()) retry.start();
@@ -42,14 +43,21 @@ public:
         waiting = false;
         retry.stop();
         deadline.stop();
-        const auto paths = changes.directories();
-        if (!paths.isEmpty()) changes.removePaths(paths);
+        if (changes) {
+            disconnect(changes, nullptr, this, nullptr);
+            const auto paths = changes->directories();
+            if (!paths.isEmpty()) changes->removePaths(paths);
+            // May be inside its directoryChanged handler. Release the watcher and
+            // its native engine after the signal returns, rather than keep it resident.
+            changes->deleteLater();
+            changes = nullptr;
+        }
     }
 private:
     bool watchDirectory()
     {
-        return changes.directories().contains(directory) ||
-            (QFileInfo(directory).isDir() && changes.addPath(directory));
+        return changes && (changes->directories().contains(directory) ||
+            (QFileInfo(directory).isDir() && changes->addPath(directory)));
     }
     void check()
     {
@@ -70,7 +78,7 @@ private:
         } else retry.stop();
     }
     std::function<void(bool)> received;
-    QFileSystemWatcher changes{this};
+    QFileSystemWatcher *changes = nullptr; // Qt parent owns it; stop schedules safe destruction.
     QTimer retry{this}, deadline{this};
     QElapsedTimer elapsed;
     QString path, directory;

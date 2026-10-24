@@ -65,17 +65,21 @@ int main(int argc, char **argv)
                 if (!timer->isSingleShot() && timer->isActive()) return true;
             return false;
         };
-        auto *watcher = receiver.findChild<QFileSystemWatcher *>();
-        assert(watcher);
+        auto watching = [&] {
+            for (auto *watcher : receiver.findChildren<QFileSystemWatcher *>())
+                if (!watcher->directories().isEmpty()) return true;
+            return false;
+        };
         // A request published before registration is consumed on the first GUI turn.
         publish(path, "42\nexit-after-capture");
         receiver.start(path, 42);
         until([&] { return received == 1; });
-        assert(exitAfter && !QFile::exists(path) && watcher->directories().isEmpty() && !polling());
+        assert(exitAfter && !QFile::exists(path) && !watching() && !polling());
+        assert(receiver.findChildren<QFileSystemWatcher *>().isEmpty());
 
         receiver.start(path, 42);
         pump(100);
-        assert(!watcher->directories().isEmpty() && !polling()); // No 500ms idle polling.
+        assert(watching() && !polling()); // No 500ms idle polling.
         publish(path, "41");
         pump(100);
         assert(received == 1 && QFile::exists(path)); // A different OBS PID cannot open selection.
@@ -102,14 +106,15 @@ int main(int argc, char **argv)
         receiver.stop(); // Also cancels the queued initial check.
         publish(path, "42");
         pump(100);
-        assert(received == 3 && QFile::exists(path) && watcher->directories().isEmpty());
+        assert(received == 3 && QFile::exists(path) && !watching());
         assert(QFile::remove(path));
 
         receiver.start(path, 42, 80);
         pump(150);
         publish(path, "42");
         pump(100);
-        assert(received == 3 && QFile::exists(path) && watcher->directories().isEmpty() && !polling());
+        assert(received == 3 && QFile::exists(path) && !watching() && !polling());
+        assert(receiver.findChildren<QFileSystemWatcher *>().isEmpty());
         assert(QFile::remove(path));
 
         const auto nested = dir.filePath("recreated");
@@ -118,13 +123,13 @@ int main(int argc, char **argv)
         assert(polling());
         assert(QDir().mkpath(nested));
         until([&] { return !polling(); }); // Re-register notifications when possible.
-        assert(!watcher->directories().isEmpty());
+        assert(watching());
         assert(QDir().rmdir(nested));
         until([&] { return polling(); }); // Deleting the watched directory must not strand the request.
         assert(QDir().mkpath(nested));
         publish(nestedRequest, "42");
         until([&] { return received == 4; });
-        assert(!QFile::exists(nestedRequest) && watcher->directories().isEmpty() && !polling());
+        assert(!QFile::exists(nestedRequest) && !watching() && !polling());
     }
     auto wait = [] {
         QEventLoop loop; QTimer::singleShot(650, &loop, &QEventLoop::quit); loop.exec();
