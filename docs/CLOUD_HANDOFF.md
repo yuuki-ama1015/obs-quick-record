@@ -113,3 +113,9 @@ test/acceptance-0.1.5の71512aeで、非表示のOBS本体へのWindowActivate�
 追加指示の枠付きアイコンを含む34db6feで、Windows CI 39447895801とNative CI 39447895888が成功し、0.1.6を正式公開・PC導入済み。唯一のRelease添付obs-quick-record.zipのSHA-256はAE34DEC54D584EB8FC3B0295C375D02FB43F2F6DDFBD4162B1DAA6ECEE305A12。公開再取得・PCのDLL/EXE/日英locale一致・既存設定保持・直接Startup参照・Alt+R再登録を確認した。旧Releaseのタグ/ソース履歴は残す。残りの試験条件はdocs/acceptance-2026-10-20.md、公開と導入の根拠はdocs/testing.md末尾を参照する。
 
 続く指示で白枠をさらに太くし、4858bb3から0.1.7を公開した。Windows CI 39449781720・Native CI 39449781492成功。最新Releaseは0.1.7の1件だけで、公開ZIPのSHA-256はB4486ED2CB76A6C3E5B466D85A373A6F6AF4026A1DB9F80D1D8011E0F41F435C。このPCも起動アシストを差し替え済み。録画コードは変更せず既存の0.1.6プラグインDLLと設定を保持している。詳細はdocs/testing.md末尾。
+
+## 2026-10-25 追加の軽量化1〜3
+
+ユーザーから「すべて実装する。まず1・2・3」と指示され、`feat/selection-notification-performance`で実装した。機能コミットは`cd9247d`。範囲の差分描画、既知OBSの終了監視中の起動通知解除と再登録、ウィンドウ選択の通知絞り込みを含む。Windows CI 40101115273でビルド・CTest全10件・ZIP検査、Native CI 40101115261で全2テストと隔離比較が成功。このPCでもCI版起動アシストの隔離テストが成功した。main・Release・PC常設版は更新していない。
+
+続きはこの作業ブランチから再開する。改善案4（起動依頼ファイルの500ms確認の通知化）・5（全画面選択の静止時確認削減）はまだ未実装。実画面・実録画・異種DPI等の受入試験と、今回の変更前後の性能測定も未実施。詳細と検証範囲はdocs/performance-review.md、docs/testing.md末尾を読む。

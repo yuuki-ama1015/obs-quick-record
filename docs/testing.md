@@ -615,3 +615,13 @@ Windowsの管理者承認後、このPCの通常配置へ導入した。ProgramD
 4858bb3のWindows build 39449781720とNative assistant check 39449781492が成功。配布ZIPの許可10ファイルと、太い白枠の9画像がEXEに埋め込まれていることを照合した。[v0.1.7](https://github.com/yuuki-ama1015/obs-quick-record/releases/tag/v0.1.7)として正式公開し、唯一のRelease添付はobs-quick-record.zip。認証なしの公開URLから再取得し、SHA-256 B4486ED2CB76A6C3E5B466D85A373A6F6AF4026A1DB9F80D1D8011E0F41F435CがCI成果物と一致した。旧0.1.6のReleaseだけを削除し、タグと履歴を保持した。
 
 このPCは変更対象の起動アシストだけを通常権限で更新し、配布EXEとハッシュ一致・プロセス稼働・Alt+R再登録を確認した。保護対象33ファイルのうち起動アシストEXEだけが変わり、残り32件はハッシュ不変。プラグインDLLは録画処理に変更のない導入済み0.1.6を保持し、OBS設定・Auto Stop・Startup登録を変更していない。導入後の通知領域の見え方はユーザーの実画面で確認できる。
+
+### 2026-10-25 追加改善1〜3の検証
+
+`feat/selection-notification-performance`の機能コミット`cd9247d95ed2a5b058d8f2fa2ef03bd1809d4445`を検証した。
+
+- [Windows build 40101115273](https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/40101115273)：MSVCビルド、CTest全10件、配布ZIPの内容照合に成功。geometry-checkでは100/125/150/200%の合成座標・描画比較、overlay-checkでは既存のEnter/Esc・確定・再表示・タイマー解除を検査した。
+- [Native assistant check 40101115261](https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/40101115261)：自己テストと追加したnative-discovery-checkの全2件、新旧の隔離比較に成功。
+- 同じCI成果物の起動アシスト（SHA-256 `B62E3D13A5073B261337BC88D46F88D72320F64B8A3D8D70F5A6F969195F16F9`）をこのPCでも隔離テストした。起動済みプロセスの通知不要、外部からの2回の起動/終了に伴う解除・再登録、待機中の周期タイマー0回、通知が使えない場合の定期確認が成功。結果は2026-10-25に回収した。
+
+今回のコードは作業ブランチにのみ送信している。main・Release・常設PC版の更新、実キーからの録画、実画面の異種DPI/重なり順/最小化/cloakingの追加受入試験は行っていない。新旧比較は従来のC#版との比較であり、今回の変更前後のCPU・常駐メモリや録画速度の改善率を示さない。4・5は未実装。
