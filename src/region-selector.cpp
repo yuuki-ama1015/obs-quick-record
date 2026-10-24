@@ -3,13 +3,18 @@
 QRegion RegionSelector::selectionDamage(const QRect &previous, const QRect &current, const QRect &monitor, const QSize &logicalSize)
 {
     if (previous == current) return {};
-    const QRect surface(QPoint(0, 0), logicalSize);
+    const QRegion surface(QRect(QPoint(0, 0), logicalSize));
     auto area = [&](const QRect &physical) {
-        // Local logical pixels, including margin for the 3px selection outline.
-        return physical.isEmpty() ? QRegion{} : QRegion(toLogical(physical, monitor, logicalSize)
-            .toAlignedRect().adjusted(-4, -4, 4, 4).intersected(surface));
+        return physical.isEmpty() ? QRect{} : toLogical(physical, monitor, logicalSize).toAlignedRect();
     };
-    return area(previous).united(area(current));
+    auto outline = [](const QRect &rect) {
+        if (rect.isEmpty()) return QRegion{};
+        // Local logical pixels: include rounding and the 3px selection pen.
+        // Keep this band even when both fills overlap: their old/new borders differ.
+        return QRegion(rect.adjusted(-4, -4, 4, 4)).subtracted(QRegion(rect.adjusted(4, 4, -4, -4)));
+    };
+    const auto before = area(previous), after = area(current);
+    return QRegion(before).xored(QRegion(after)).united(outline(before)).united(outline(after)).intersected(surface);
 }
 CaptureTarget RegionSelector::between(QPoint start, QPoint end, const std::vector<MonitorInfo> &monitors)
 {
