@@ -95,6 +95,7 @@ public:
         label->setMaximumWidth(750);
         layout->addWidget(label, 0, Qt::AlignHCenter);
         layout->addStretch();
+        for (auto *child : findChildren<QWidget *>()) child->setMouseTracking(true);
         setGeometry(monitor.screen->geometry()); // Qt logical pixels.
     }
     QRectF localRect(const QRect &physical) const
@@ -129,13 +130,6 @@ public:
     }
     void mousePressEvent(QMouseEvent *e) override { if (owner && e->button() == Qt::LeftButton) owner->press(physicalPoint(e)); }
     void mouseReleaseEvent(QMouseEvent *e) override { if (owner && e->button() == Qt::LeftButton) owner->release(physicalPoint(e)); }
-    void mouseMoveEvent(QMouseEvent *) override
-    {
-        if (owner && !owner->ready && owner->mode != CaptureKind::Region) {
-            if (owner->hoverTimer.interval() != 50) owner->hoverTimer.setInterval(50);
-            owner->hover();
-        }
-    }
     void closeEvent(QCloseEvent *event) override
     {
         if (owner) { owner->hide(); emit owner->canceled(); }
@@ -189,12 +183,22 @@ void QuickRecordOverlay::hide()
 void QuickRecordOverlay::message(const QString &value) { status = value; repaint(); }
 bool QuickRecordOverlay::eventFilter(QObject *object, QEvent *event)
 {
-    if (event->type() != QEvent::KeyPress) return false;
+    const auto type = event->type();
+    if (type != QEvent::KeyPress && type != QEvent::MouseMove && type != QEvent::Enter) return false;
     auto *widget = qobject_cast<QWidget *>(object);
     bool ours = false;
     for (const auto &surface : surfaces)
         if (surface->isVisible() && widget && widget->window() == surface.get()) ours = true;
     if (!ours) return false;
+    if (type != QEvent::KeyPress) {
+        // Track movement over toolbar buttons/labels as well as the desktop surface.
+        // One trailing check covers the final position after rapid mouse movement.
+        if (!ready && mode != CaptureKind::Region) {
+            if (hoverTimer.interval() != 50) hoverTimer.setInterval(50);
+            hover();
+        }
+        return false;
+    }
     auto *key = static_cast<QKeyEvent *>(event);
     if (key->isAutoRepeat()) return false;
     if (key->key() == Qt::Key_Escape) { emit canceled(); return true; }
@@ -208,7 +212,7 @@ void QuickRecordOverlay::chooseMode(CaptureKind value)
 {
     delete windowEvents;
     windowEvents = nullptr;
-    hoverTimer.setSingleShot(false);
+    hoverTimer.setSingleShot(value == CaptureKind::Monitor);
     mode = value;
     ready = false;
     dragging = false;

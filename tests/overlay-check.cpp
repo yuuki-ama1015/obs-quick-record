@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <QKeyEvent>
 #include <QMouseEvent>
+#include <QEnterEvent>
 #include <QPushButton>
 #include <QLabel>
 #include <QWidget>
@@ -15,6 +16,11 @@ class PaintCounter : public QObject {
 public:
     int count = 0;
     bool eventFilter(QObject *, QEvent *event) override { if (event->type() == QEvent::Paint) ++count; return false; }
+};
+class TimerCounter : public QObject {
+public:
+    int count = 0;
+    bool eventFilter(QObject *, QEvent *event) override { if (event->type() == QEvent::Timer) ++count; return false; }
 };
 
 // Exercises real overlay event routing on Qt's minimal platform. No OS key/mouse
@@ -104,9 +110,11 @@ int main(int argc, char **argv)
     for (auto *widget : QApplication::topLevelWidgets())
         if (widget->isVisible() && widget->windowTitle().startsWith("Title")) reopened = true;
     assert(reopened);
-    // Stationary window/monitor hover slows down; confirmation/cancellation stops it.
+    // Monitor selection uses movement plus one trailing check, with no idle polling.
     auto *hoverTimer = overlay.findChild<QTimer *>();
     assert(hoverTimer);
+    TimerCounter hoverTicks;
+    hoverTimer->installEventFilter(&hoverTicks);
     for (auto *widget : QApplication::topLevelWidgets()) {
         if (!widget->isVisible() || !widget->windowTitle().startsWith("Title")) continue;
         for (auto *button : widget->findChildren<QPushButton *>()) {
@@ -114,9 +122,33 @@ int main(int argc, char **argv)
         }
         break;
     }
-    assert(hoverTimer->isActive() && hoverTimer->interval() == 50);
+    assert(hoverTimer->isActive() && hoverTimer->isSingleShot());
     wait();
-    assert(hoverTimer->interval() == 250);
+    assert(!hoverTimer->isActive());
+    const auto stationaryTicks = hoverTicks.count;
+    wait();
+    assert(hoverTicks.count == stationaryTicks);
+    auto move = [](QWidget *receiver) {
+        const QPointF local(2, 2);
+        QMouseEvent event(QEvent::MouseMove, local, receiver->mapToGlobal(local), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+        QApplication::sendEvent(receiver, &event);
+    };
+    auto *toolbar = surface->findChild<QPushButton *>();
+    auto *label = surface->findChild<QLabel *>();
+    assert(toolbar && label && toolbar->hasMouseTracking() && label->hasMouseTracking());
+    move(surface);
+    move(label);
+    QEnterEvent entered(QPointF(2, 2), QPointF(2, 2), toolbar->mapToGlobal(QPoint(2, 2)));
+    QApplication::sendEvent(toolbar, &entered);
+    assert(hoverTimer->isActive() && hoverTimer->isSingleShot()); // Child movement reaches the shared throttle.
+    wait();
+    assert(!hoverTimer->isActive());
+    const auto settledTicks = hoverTicks.count;
+    move(&foreign);
+    wait();
+    assert(!hoverTimer->isActive() && hoverTicks.count == settledTicks);
+    key(surface, Qt::Key_Return);
+    assert(confirmed == 2); // Hover alone never confirms a monitor.
     for (auto *button : surface->findChildren<QPushButton *>())
         if (button->text() == "Window") button->click();
     wait();
