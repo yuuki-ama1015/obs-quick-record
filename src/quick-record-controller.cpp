@@ -6,7 +6,6 @@
 #include <QCoreApplication>
 #include <QApplication>
 #include <util/bmem.h>
-#include "launcher-request.hpp"
 #include "foreground-safety.hpp"
 QuickRecordController::QuickRecordController() : launcherSession([this] {
     if (shuttingDown || state != QuickRecordState::Idle || pending || externalRecording ||
@@ -15,25 +14,19 @@ QuickRecordController::QuickRecordController() : launcherSession([this] {
     for (auto *widget : QApplication::topLevelWidgets())
         if (widget->isVisible()) return true; // Settings, errors and OBS prompts must remain usable.
     return false;
-}), hotkey(this, [this] { toggle(); })
+}), hotkey(this, [this] { toggle(); }), launcherRequests(this, [this](bool autoExit) {
+    if (shuttingDown) return;
+    blog(LOG_INFO, "OBS Quick Record: launcher request received");
+    if (autoExit && !externalRecording && (requested || !obs_frontend_recording_active()) &&
+        !obs_frontend_streaming_active() && !obs_frontend_replay_buffer_active() && !obs_frontend_virtualcam_active())
+        launcherSession.claim(static_cast<QWidget *>(obs_frontend_get_main_window()));
+    launcherSession.complete(); // Transient selection/settings UI delays ownership.
+    if (state == QuickRecordState::Idle && !pending) toggle();
+})
 {
     hotkey.load(settings.data);
     hotkey.save(settings.data);
     settings.save(); // Export the actual binding for the optional external launcher.
-    connect(&launcherTimer, &QTimer::timeout, this, [this] {
-        if (shuttingDown || launcherWait.elapsed() >= 60000) { launcherTimer.stop(); return; }
-        launcherTimer.setInterval(500); // Only the first request check is immediate.
-        bool autoExit = false;
-        if (consumeLauncherRequest(launcherRequestPath, QCoreApplication::applicationPid(), &autoExit)) {
-            launcherTimer.stop();
-            blog(LOG_INFO, "OBS Quick Record: launcher request received");
-            if (autoExit && !externalRecording && (requested || !obs_frontend_recording_active()) &&
-                !obs_frontend_streaming_active() && !obs_frontend_replay_buffer_active() && !obs_frontend_virtualcam_active())
-                launcherSession.claim(static_cast<QWidget *>(obs_frontend_get_main_window()));
-            launcherSession.complete(); // Transient selection/settings UI delays, rather than discards, ownership.
-            if (state == QuickRecordState::Idle && !pending) toggle();
-        }
-    });
     connect(&overlay, &QuickRecordOverlay::selectionReset, this, [this] { countdown.stop(); state = QuickRecordState::Selecting; });
     connect(&prepareTimer, &QTimer::timeout, this, [this] {
         if (obs_frontend_recording_active()) { finish(); notify("AlreadyRecording"); return; }
@@ -79,7 +72,7 @@ QuickRecordController::~QuickRecordController()
 {
     shuttingDown = true;
     launcherSession.retain();
-    launcherTimer.stop();
+    launcherRequests.stop();
     if (frontendRegistered) obs_frontend_remove_event_callback(frontendEvent, this);
     if (!shutdownSettingsSaved) {
         hotkey.save(settings.data);
@@ -105,10 +98,9 @@ void QuickRecordController::onEvent(obs_frontend_event event)
         CaptureController::removeStaleScene();
         if (obs_current_module()) {
             char *path = obs_module_config_path("launch-request.txt");
-            launcherRequestPath = QString::fromUtf8(path);
+            const auto launcherRequestPath = QString::fromUtf8(path);
             bfree(path);
-            launcherWait.start();
-            if (!launcherRequestPath.isEmpty()) launcherTimer.start(0);
+            launcherRequests.start(launcherRequestPath, QCoreApplication::applicationPid());
         }
     } else if (event == OBS_FRONTEND_EVENT_RECORDING_STARTING && requested) {
         recordingResult.store(OBS_OUTPUT_ERROR);
@@ -152,7 +144,7 @@ void QuickRecordController::onEvent(obs_frontend_event event)
     } else if (event == OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN || event == OBS_FRONTEND_EVENT_EXIT) {
         launcherSession.retain();
         shuttingDown = true;
-        launcherTimer.stop();
+        launcherRequests.stop();
         // OBS dispatches callbacks in reverse order, so removing this callback here is safe.
         // Its frontend API is destroyed before module_unload.
         if (frontendRegistered) obs_frontend_remove_event_callback(frontendEvent, this);

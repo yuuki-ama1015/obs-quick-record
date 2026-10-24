@@ -8,10 +8,10 @@
 #include "quick-record-overlay.hpp"
 #include "recording-indicator.hpp"
 #include <QPointer>
-#include <QElapsedTimer>
 #include <atomic>
 #include <memory>
 #include "launcher-session.hpp"
+#include "launcher-request-watcher.hpp"
 #include "recording-quality.hpp"
 class QAction;
 class SettingsWindow;
@@ -47,9 +47,7 @@ private:
     QTimer startTimeout;
     QTimer countdown;
     QTimer prepareTimer;
-    QTimer launcherTimer;
-    QElapsedTimer launcherWait;
-    QString launcherRequestPath;
+    LauncherRequestWatcher launcherRequests;
     bool requested = false;
     bool externalRecording = false;
     std::unique_ptr<RecordingIndicator> indicator;
