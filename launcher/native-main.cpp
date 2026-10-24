@@ -16,7 +16,7 @@ class Application {
     fs::path config, request, settings, report;
     BindingCache bindings;
     Binding registered;
-    bool ownsKey = false, hasBinding = false, benchmark = false;
+    bool ownsKey = false, hasBinding = false, benchmark = false, forcePolling = false, discoveryQueued = false;
     const wchar_t *processName = L"obs64.exe";
     std::wstring lastError;
     Handle process;
@@ -25,11 +25,13 @@ class Application {
     HWINEVENTHOOK obsEvents = nullptr;
     static inline Application *eventOwner = nullptr; // Out-of-context WinEvent callbacks run on this GUI thread.
     ULONGLONG nextScan = 0, pendingUntil = 0, started = GetTickCount64(), duration = 0;
-    unsigned scans = 0, ticks = 0, detections = 0;
-    static void CALLBACK obsWindowEvent(HWINEVENTHOOK, DWORD, HWND window, LONG object, LONG child, DWORD, DWORD)
+    unsigned scans = 0, ticks = 0, detections = 0, hookInstalls = 0, hookRemovals = 0;
+    static void CALLBACK obsWindowEvent(HWINEVENTHOOK hook, DWORD type, HWND window, LONG object, LONG child, DWORD, DWORD)
     {
         auto *owner = eventOwner;
-        if (!owner || owner->processId || object != OBJID_WINDOW || child != CHILDID_SELF || !window) return;
+        if (!owner || hook != owner->obsEvents || owner->processId || owner->discoveryQueued ||
+            (type != EVENT_OBJECT_CREATE && type != EVENT_OBJECT_SHOW) ||
+            object != OBJID_WINDOW || child != CHILDID_SELF || !window) return;
         wchar_t className[128]{};
         if (!GetClassNameW(window, className, 128) || wcsncmp(className, L"Qt", 2) != 0) return;
         DWORD pid = 0, candidateSession = 0;
@@ -39,7 +41,7 @@ class Application {
         wchar_t path[32768]{}; DWORD length = 32768;
         if (process && QueryFullProcessImageNameW(process.value, 0, path, &length) &&
             _wcsicmp(fs::path(path).filename().c_str(), owner->processName) == 0)
-            PostMessageW(owner->window, WM_APP + 2, 0, 0);
+            owner->discoveryQueued = PostMessageW(owner->window, WM_APP + 2, 0, 0) != FALSE;
     }
     static LRESULT CALLBACK procedure(HWND window, UINT message, WPARAM wp, LPARAM lp)
     {
@@ -79,6 +81,20 @@ class Application {
         timerInterval = interval;
         if (interval) winrt::check_bool(SetTimer(window, 1, interval, nullptr) != 0);
     }
+    bool startDiscovery()
+    {
+        if (forcePolling || obsEvents) return false;
+        obsEvents = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_SHOW, nullptr, obsWindowEvent, 0, 0,
+                                    WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+        if (obsEvents) ++hookInstalls;
+        return obsEvents != nullptr;
+    }
+    void stopDiscovery()
+    {
+        auto hook = obsEvents;
+        obsEvents = nullptr;
+        if (hook) { UnhookWinEvent(hook); ++hookRemovals; }
+    }
     bool obsRunning(bool force = false)
     {
         if (process && WaitForSingleObject(process.value, 0) == WAIT_TIMEOUT) return true;
@@ -113,6 +129,10 @@ class Application {
                 }
             }
             running = obsRunning(force);
+            // A process handle is sufficient while OBS is alive. When it exits,
+            // reinstall discovery and rescan AFTER registration to close the gap.
+            if (!process && startDiscovery()) running = obsRunning(true);
+            if (process) stopDiscovery();
             if (running) releaseKey();
             else {
                 auto binding = bindings.read(settings);
@@ -133,7 +153,7 @@ class Application {
     }
     void launch()
     {
-        if (obsRunning(true)) { releaseKey(); return; }
+        if (obsRunning(true)) { refresh(); return; }
         if (pendingUntil) return;
         auto obs = folder(FOLDERID_ProgramFiles) / L"obs-studio/bin/64bit/obs64.exe";
         require(fs::exists(obs), "OBS is not installed at the standard location");
@@ -142,6 +162,7 @@ class Application {
         STARTUPINFOW info{sizeof(info)}; PROCESS_INFORMATION child{};
         winrt::check_bool(CreateProcessW(obs.c_str(), command.data(), nullptr, nullptr, FALSE, 0, nullptr, obs.parent_path().c_str(), &info, &child));
         CloseHandle(child.hThread); process.reset(child.hProcess); processId = child.dwProcessId;
+        stopDiscovery();
         writeRequest(request, processId);
         pendingUntil = GetTickCount64() + 60000; timer(500);
         log(L"OBS launched; selector requested");
@@ -155,7 +176,8 @@ class Application {
     }
     void menu()
     {
-        bool running = obsRunning(true); if (running) releaseKey();
+        refresh(true);
+        bool running = processId != 0;
         HMENU menu = CreatePopupMenu(); require(menu != nullptr, "Cannot create tray menu");
         const auto select = running ? text(L"OBS起動中：設定したショートカットで選択", L"OBS is running: use your recording shortcut") :
             pendingUntil ? text(L"OBSの起動を待っています…", L"Waiting for OBS to start…") : text(L"録画対象の選択を開く", L"Launch OBS selection");
@@ -186,14 +208,16 @@ class Application {
         json << "{\"elapsedMs\":" << GetTickCount64() - started << ",\"cpu100ns\":" << time(kernel) + time(user)
              << ",\"workingSet\":" << memory.WorkingSetSize << ",\"privateBytes\":" << memory.PrivateUsage
              << ",\"processScans\":" << scans << ",\"timerTicks\":" << ticks << ",\"processDetections\":" << detections
-             << ",\"eventDriven\":" << (obsEvents && directoryChange != INVALID_HANDLE_VALUE ? "true" : "false") << "}";
+             << ",\"hookInstalls\":" << hookInstalls << ",\"hookRemovals\":" << hookRemovals
+             << ",\"discoveryActive\":" << (obsEvents ? "true" : "false")
+             << ",\"eventDriven\":" << (process || (obsEvents && directoryChange != INVALID_HANDLE_VALUE) ? "true" : "false") << "}";
         writeFile(report, json.str());
     }
     LRESULT message(HWND target, UINT message, WPARAM wp, LPARAM lp)
     {
         if (message == taskbarCreated && !benchmark) { addTray(); return 0; }
         if (message == WM_HOTKEY && wp == 1) { launch(); return 0; }
-        if (message == WM_APP + 2) { refresh(true); return 0; }
+        if (message == WM_APP + 2) { discoveryQueued = false; refresh(true); return 0; }
         if (message == trayMessage && (LOWORD(lp) == WM_CONTEXTMENU || LOWORD(lp) == NIN_KEYSELECT)) { menu(); return 0; }
         if (message == WM_TIMER) {
             if (benchmark && wp == 2) { benchmarkReport(); DestroyWindow(target); return 0; }
@@ -209,7 +233,7 @@ class Application {
     }
 public:
     Application(fs::path directory, bool benchmark = false, ULONGLONG duration = 0, fs::path report = {}, bool forcePolling = false)
-        : config(std::move(directory)), request(config / L"launch-request.txt"), settings(config / L"settings.json"), report(std::move(report)), benchmark(benchmark), duration(duration)
+        : config(std::move(directory)), request(config / L"launch-request.txt"), settings(config / L"settings.json"), report(std::move(report)), benchmark(benchmark), forcePolling(forcePolling), duration(duration)
     {
         if (benchmark) processName = L"obs-qr-native-qa.exe";
         ProcessIdToSessionId(GetCurrentProcessId(), &session); fs::create_directories(config);
@@ -222,16 +246,14 @@ public:
             winrt::check_bool(image != nullptr); addTray();
         }
         directoryChange = FindFirstChangeNotificationW(config.c_str(), FALSE, FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_SIZE);
-        refresh(true);
         eventOwner = this;
-        if (!forcePolling) obsEvents = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_SHOW, nullptr, obsWindowEvent, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
-        refresh(true); // Close the discovery gap between the initial scan and hook installation.
+        refresh(true);
         if (benchmark) winrt::check_bool(SetTimer(window, 2, static_cast<UINT>(duration), nullptr) != 0);
     }
     ~Application()
     {
         eventOwner = nullptr;
-        if (obsEvents) UnhookWinEvent(obsEvents);
+        stopDiscovery();
         if (benchmark) KillTimer(window, 2);
         if (timerInterval) KillTimer(window, 1);
         releaseKey();
@@ -275,13 +297,16 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
         winrt::init_apartment(winrt::apartment_type::single_threaded);
         SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         if (args.size() == 2 && args[1] == L"--check") return assist::runChecks() ? 0 : 1;
-        if (args.size() == 2 && args[1] == L"--window-event-check") {
+        if (args.size() >= 2 && args.size() <= 4 && args[1] == L"--window-event-check") {
+            const auto hold = args.size() >= 3 ? std::stoul(args[2]) : 600UL;
+            assist::require(hold >= 100 && hold <= 60000, "Invalid event fixture duration");
             WNDCLASSW type{}; type.hInstance = GetModuleHandleW(nullptr); type.lpfnWndProc = DefWindowProcW; type.lpszClassName = L"QtQuickRecordNativeTest";
             assist::require(RegisterClassW(&type) != 0, "Cannot create event test class");
             HWND window = CreateWindowExW(WS_EX_TOOLWINDOW, type.lpszClassName, L"event test", 0, 0, 0, 0, 0, nullptr, nullptr, type.hInstance, nullptr);
             winrt::check_bool(window != nullptr);
-            NotifyWinEvent(EVENT_OBJECT_SHOW, window, OBJID_WINDOW, CHILDID_SELF);
-            Sleep(600); DestroyWindow(window); return 0;
+            for (int i = 0; i < 20; ++i) NotifyWinEvent(EVENT_OBJECT_SHOW, window, OBJID_WINDOW, CHILDID_SELF);
+            if (args.size() == 4) assist::writeFile(args[3], "ready");
+            Sleep(hold); DestroyWindow(window); return 0;
         }
         if (args.size() == 4 && (args[1] == L"--benchmark" || args[1] == L"--benchmark-fallback")) {
             GUID id{}; winrt::check_hresult(CoCreateGuid(&id)); wchar_t guid[40]{}; StringFromGUID2(id, guid, 40);
