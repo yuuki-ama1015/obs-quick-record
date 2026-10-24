@@ -36,8 +36,14 @@ class WindowEvents final : public QObject {
 public:
     WindowEvents(QObject *parent, std::function<void()> callback) : QObject(parent), changed(std::move(callback))
     {
-        for (auto range : {std::pair<DWORD, DWORD>{EVENT_OBJECT_CREATE, EVENT_OBJECT_NAMECHANGE},
-                           {EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND}}) {
+        // Subscribe only to changes that can alter the top-level capture target.
+        // In particular, focus, text-selection and value events need no rescan.
+        // Keep geometry, visibility, z-order, title, minimize and DWM cloak changes.
+        for (auto range : {std::pair<DWORD, DWORD>{EVENT_OBJECT_CREATE, EVENT_OBJECT_REORDER},
+                            {EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_NAMECHANGE},
+                            {EVENT_OBJECT_CLOAKED, EVENT_OBJECT_UNCLOAKED},
+                            {EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND},
+                            {EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MINIMIZEEND}}) {
             auto hook = SetWinEventHook(range.first, range.second, nullptr, event, 0, 0,
                                        WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
             if (!hook) { clear(); break; }
