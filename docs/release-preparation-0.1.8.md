@@ -13,4 +13,15 @@ An isolated runtime was prepared under build-acceptance-20261101. Shell-launched
 
 GitHub CLI credentials are unavailable from the restricted execution context even after the user reported successful browser login. Do not repeatedly ask the user to log in or assume their credentials are invalid. The connected GitHub integration can update source but has no Release publication tool.
 
-The attempted main update was rejected by automatic approval review because its authorization was judged limited to the work branch. Explicit approval for main, Release and installed-PC updates has been requested. None of those updates has completed. Do not treat these preparation results as publication or installation evidence.
+The initial main update was rejected by automatic approval review because its authorization was judged limited to the work branch. The user subsequently explicitly approved main, Release and installed-PC updates. Completion evidence follows.
+
+## Publication and installation completed — 2026-11-01
+
+- Main was fast-forwarded to 669833a10374417a81cd70bdb4913672d0df237a. The v0.1.8 tag points to that commit; changes after the tested candidate are documentation only.
+- Published v0.1.8 as OBS Quick Record with obs-quick-record.zip as its only attachment. Downloaded the public asset again and verified the SHA-256 above. Removed the previous Release entry after verification, retaining Git tags and source history. Only v0.1.8 remains listed.
+- GitHub CLI authentication works when the command can access the Windows credential store. No additional user login was necessary after the reported successful login.
+- Updated through the packaged setup script, preserving the existing Startup shortcut with -NoStartup. The first installer attempt correctly refused while the assistant was running; it made no installation changes. Verified OBS was stopped, stopped only the assistant whose executable matched the installed path, then completed installation and restarted the assistant.
+- Installed plugin DLL, assistant EXE and both locale files match the distribution package (all four SHA-256 comparisons passed).
+- All 13 settings files recorded immediately before this update retained their hashes. This is limited to the recorded manifest, not a claim that every OBS file was compared.
+- The assistant is running from the normal LocalAppData installation directory. Its log records hotkey registration 1:82 (Alt+R). The existing Startup shortcut points directly to that EXE with no arguments.
+- No recording or streaming was started during this verification. Actual keyboard-to-recording acceptance and the other desktop conditions above remain unverified for 0.1.8.
