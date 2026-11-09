@@ -1,22 +1,27 @@
 # 進捗と方針
 
 ## 今後の実装方針
-- Windows向け OBS Studio 外部プラグイン。OBS本体と obs-auto-stop は改造しない。
+- Windows向け OBS Studio 外部プラグイン。OBS本体と obs-auto-stop は改造しない（連携はOBS標準録画イベントのみ）。
 - OBS 32.2.2 / Qt 6.11系 ABI 互換を前提。録画はOBS標準API・標準ソースを使う。
+- 再開時は README、`docs/CLOUD_HANDOFF.md`、`docs/design.md`、`docs/testing.md` を確認する（詳細な再開手順は CLOUD_HANDOFF を正とする）。
 - 進捗はGitで管理し、指示があればGitHub（Release含む）へ反映。私的メモ・個人設定・録画はリポジトリ／配布物に含めない。
-- 再開時は README、docs/CLOUD_HANDOFF.md、docs/design.md、docs/testing.md を確認する。
 
 ## 完了したこと
 - 範囲／ウィンドウ／モニター選択からのOBS標準録画、ホットキー、設定UI、OBS起動アシスト連携を実装
-- 0.1.8候補の性能改善・配布準備と実機受け入れ記録（docs配下）
-- 2026-11-02 物理ショートカット受け入れ確認とQA整理の記録
+- 0.1.5〜0.1.8系の性能改善・配布準備（通知性能、リクエスト監視の解放など）
+- 2026-10-20 / 2026-11-02: 隔離QAランタイムでの受け入れ（範囲・ウィンドウ・モニター、Enter開始/Esc取消、外部停止、Auto Stop共存、所有セッション自動終了、物理Alt+Rのユーザー確認）
+- 2026-11-01: 0.1.8 公開・導入ファイル確認の記録
 - 2026-11-09 PROGRESS.md運用を導入
+- 2026-11-09 旧進捗メモ（acceptance / release-preparation / performance-review / CLOUD_PROMPT）を本ファイルへ統合して削除
 
 ## 次にやること
-1. docs/testing.md / CLOUD_HANDOFF に残る未確認の実機条件を洗い出し、優先度を付ける（推測: MVP受入完了宣言の前）
-2. README表記の現行バージョンと最新Releaseタグの整合を確認（推測）
-3. 公開Issueは現時点で未作成。追加課題はIssueか docs に残す
+1. 未再試験の境界を優先度付けして埋める: 混在DPI／複数モニタ、他Windows・OBS版、別ユーザー／管理者アカウント、再ログイン、ウィンドウ移動・リサイズ・遮蔽、実出力エラー保持
+2. Auto Stop共存は最大録画時間停止のみ確認済み。静止／無音／メディア検出との組み合わせは別途（推測）
+3. 物理キーでの手動停止パスの再確認（記録上は登録コールバック経由の確認が中心）
+4. README表記バージョンと最新Releaseタグの整合確認（推測）
+5. 実録画条件下でのCPU／メモリ改善率の測定は未実施（処理回数削減≠実機改善率）
 
 ## 未解決の問題・メモ
-- README冒頭は 0.1.5 表記のまま。docs側は 0.1.8 受け入れ記録あり（表記ずれの可能性）
-- オープンIssueなし
+- MVP受入完了は未宣言。詳細な決定事項・実装入口は `docs/CLOUD_HANDOFF.md`、試験記録は `docs/testing.md`
+- 性能レビューで強調: 隔離一時フォルダ試験≠本番UAC承認試験。制限環境の一時ファイル拒否を実環境不良と混同しない
+- 旧詳細ログ: acceptance `40e6218` / `acceptance-2026-10-20` 系、performance-review `11295d8`、release-preparation は git 履歴を参照
