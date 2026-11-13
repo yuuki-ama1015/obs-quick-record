@@ -157,8 +157,13 @@ void QuickRecordController::onEvent(obs_frontend_event event)
     } else if (event == OBS_FRONTEND_EVENT_STREAMING_STARTING || event == OBS_FRONTEND_EVENT_REPLAY_BUFFER_STARTING || event == OBS_FRONTEND_EVENT_VIRTUALCAM_STARTED) {
         launcherSession.retain();
     } else if (event == OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGING) {
-        if (state == QuickRecordState::Recording) capture.stop();
-        else finish();
+        if (state == QuickRecordState::Recording) {
+            // OBS 32.2.2 clears the old collection before the asynchronous STOPPED.
+            // A held previous scene keeps its items' inputs alive, which OBS treats as a
+            // source leak and exits. Restore and release everything now; STOPPED finishes the rest.
+            capture.cleanup(settings.restoreScene);
+            capture.stop();
+        } else finish();
     } else if (event == OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED && !pending && state == QuickRecordState::Idle) {
         CaptureController::removeStaleScene();
     }

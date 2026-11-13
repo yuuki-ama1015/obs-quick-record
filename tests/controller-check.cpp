@@ -37,6 +37,7 @@ static struct {
     bool saveFails = false;
     int saves = 0, indicatorConstructions = 0;
     bool stopInsideSignal = false;
+    bool asyncStop = false; // OBS delivers STOPPED later, after the stop request returns.
     int configReads = 0;
     int opens = 0, prepares = 0, starts = 0, stops = 0, cleanups = 0, staleCleanups = 0;
     QWidget *main = nullptr;
@@ -167,7 +168,7 @@ bool CaptureController::start()
     return qa.startOK;
 }
 void CaptureController::stop()
-{ ++qa.stops; stopped(); }
+{ ++qa.stops; if (!qa.asyncStop) stopped(); }
 void CaptureController::cleanup(bool) { ++qa.cleanups; qa.allocated = false; }
 
 int main(int argc, char **argv)
@@ -270,6 +271,22 @@ int main(int argc, char **argv)
         assert(qa.starts == 1 && qa.recording);
         stopped(); // OBS/another plugin stops it.
         idle();
+    });
+    scenario(StartMode::Immediate, [] {
+        qa.asyncStop = true;
+        emit qa.overlay->selectionReady();
+        wait(150);
+        assert(qa.recording && qa.allocated && qa.indicator);
+        // OBS clears the old collection before STOPPED. Holding the previous scene
+        // until then leaves its inputs orphaned and OBS exits with a source leak error.
+        event(OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGING);
+        assert(qa.stops == 1 && !qa.allocated && qa.recording && qa.indicator);
+        const int cleanups = qa.cleanups;
+        stopped();
+        idle();
+        assert(qa.cleanups == cleanups + 1); // STOPPED cleanup of released capture is harmless.
+        toggle();
+        assert(qa.opens == 2 && qa.visible);
     });
     scenario(StartMode::Immediate, [] {
         emit qa.overlay->selectionReady();
