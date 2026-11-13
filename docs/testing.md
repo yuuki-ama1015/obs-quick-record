@@ -640,3 +640,13 @@ Windowsの管理者承認後、このPCの通常配置へ導入した。ProgramD
 検証EXEのSHA-256は、launcher-request-checkが`EDF0CCCBE70EA34F16FB5E67A5AAE4A4EEFC5975F8F8E22073F2279A6EAE0D7C`、overlay-checkが`65EEA2DD1F0A9248A955CF49FB8DC749387946635D8098F26B07A03C70C49F51`。フォルダー削除時のFindNextChangeNotification警告は再登録/再試行を検査するケースで発生する。minimalのウィンドウ操作・録画インジケーターのキャプチャ除外に関する警告も、実デスクトップの動作確認として扱わない。
 
 この作業では通常版OBSの起動・録画、プラグイン/設定/Startupの変更、main・Release・PCへの反映を行っていない。実画面・実キー・異種DPIの追加受入と、今回の変更前後のCPU/メモリ/体感速度の比較は未実施。続きは作業ブランチから反映または受入試験へ進める。
+
+### 2026-11-13 録画ライフサイクルの安定性修正（R1〜R3）
+
+2026-11-10のコードレビュー案R1〜R3を作業ブランチ`ccr-aafdebaf-j9y8vf`へ実装した。根拠はOBS 32.2.2公式ソース（`ba2f32b`）の確認で、詳細はdocs/design.md末尾。
+
+- R1 `16c219f`：録画中のシーンコレクション切替で、CHANGING時点に一時シーン・キャプチャ・元シーン参照を解放してから停止を要求する。controller-checkに、停止が後から届く条件でCHANGING直後に解放済み・録画継続中・REC表示維持を確認し、STOPPED後に再利用できるケースを追加。
+- R2 `2e46508`：外部録画のSTARTING後にSTOPPEDが来ない開始失敗で、10秒後に録画が非アクティブなら外部録画扱いを解除する。controller-checkに、期限前は選択を開けず、期限後は選択・録画・停止できるケースを追加。所要時間が約10秒増えるため、controller-checkのCTest TIMEOUTを90→120秒にした。
+- R3 `241016b`：自分の録画要求がSTARTINGなしで戻った場合（出力無効化・保存先無効・空き容量不足）に、10秒待たず直ちに後処理しStartFailedを通知する。偽のCaptureController::startでSTARTINGとSTARTEDを分け、既存の「STARTING後に開始しない」10秒タイムアウトのケースを維持し、STARTINGなしの即時失敗ケースを追加。
+
+この環境はLinuxのためローカルビルド・実行はしていない。Windows CIの結果は下に追記する。実OBSでのコレクション切替・外部録画の開始失敗・保存先無効の再現試験は未実施。

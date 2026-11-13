@@ -14,21 +14,23 @@
 - 2026-11-09 PROGRESS.md運用を導入
 - 2026-11-09 旧進捗メモ（acceptance / release-preparation / performance-review / CLOUD_PROMPT）を本ファイルへ統合して削除
 - 2026-11-10 コードレビュー（軽量化・安定性）を実施。OBS 32.2.2公式ソース（ba2f32b）と照合し、改善案R1〜R12を下の「レビュー改善案」に記録（コード変更なし・Linux上の静的確認のみ）
+- 2026-11-13 R1〜R3を作業ブランチ`ccr-aafdebaf-j9y8vf`に実装（16c219f / 2e46508 / 241016b）。controller-checkに回帰ケース追加。根拠はdocs/design.md末尾、検証記録はdocs/testing.md末尾
 
 ## 次にやること
-1. レビュー改善案（下記R1〜R12）の採否を決める。採用するならR1→R2→R3の順に、実機再現→修正→controller-check等へ回帰条件追加
-2. 未再試験の境界を優先度付けして埋める: 混在DPI／複数モニタ、他Windows・OBS版、別ユーザー／管理者アカウント、再ログイン、ウィンドウ移動・リサイズ・遮蔽、実出力エラー保持
-3. Auto Stop共存は最大録画時間停止のみ確認済み。静止／無音／メディア検出との組み合わせは別途（推測）
-4. 物理キーでの手動停止パスの再確認（記録上は登録コールバック経由の確認が中心）
-5. READMEは0.1.5表記、CMakeは0.1.8（2026-11-10確認）。READMEを更新する。`docs/CLOUD_HANDOFF.md`・`docs/testing.md`に残る削除済み文書（CLOUD_PROMPT / performance-review / acceptance-* / release-preparation-0.1.8）への参照も整理
-6. 実録画条件下でのCPU／メモリ改善率の測定は未実施（処理回数削減≠実機改善率）
+1. R1〜R3を実OBSで確認する（録画中のコレクション切替でOBSが終了しないこと、外部録画の開始失敗後に選択できること、保存先無効時に即座に元シーンへ戻ること）。確認後にmain・Releaseへの反映をユーザーに確認
+2. 残りのレビュー改善案R4〜R12の採否を決める（R8は先に起動アシストのWinEventコールバック回数を計測）
+3. 未再試験の境界を優先度付けして埋める: 混在DPI／複数モニタ、他Windows・OBS版、別ユーザー／管理者アカウント、再ログイン、ウィンドウ移動・リサイズ・遮蔽、実出力エラー保持
+4. Auto Stop共存は最大録画時間停止のみ確認済み。静止／無音／メディア検出との組み合わせは別途（推測）
+5. 物理キーでの手動停止パスの再確認（記録上は登録コールバック経由の確認が中心）
+6. READMEは0.1.5表記、CMakeは0.1.8（2026-11-10確認）。READMEを更新する。`docs/CLOUD_HANDOFF.md`・`docs/testing.md`に残る削除済み文書（CLOUD_PROMPT / performance-review / acceptance-* / release-preparation-0.1.8）への参照も整理
+7. 実録画条件下でのCPU／メモリ改善率の測定は未実施（処理回数削減≠実機改善率）
 
 ## 未解決の問題・メモ
 - MVP受入完了は未宣言。詳細な決定事項・実装入口は `docs/CLOUD_HANDOFF.md`、試験記録は `docs/testing.md`
 - 性能レビューで強調: 隔離一時フォルダ試験≠本番UAC承認試験。制限環境の一時ファイル拒否を実環境不良と混同しない
 - 旧詳細ログ: acceptance `40e6218` / `acceptance-2026-10-20` 系、performance-review `11295d8`、release-preparation は git 履歴を参照
 
-### レビュー改善案（2026-11-10、未採否・未実装・実機未再現）
+### レビュー改善案（2026-11-10。R1〜R3は2026-11-13に実装済み・実機未確認、R4以降は未採否）
 安定性（OBS 32.2.2ソースで根拠確認済み）
 - R1【高】録画中のシーンコレクション切替でOBSが「Source Cleanup Error」を出して終了し得る。`quick-record-controller.cpp`のSCENE_COLLECTION_CHANGINGはRecording中に停止要求だけ行い、`CaptureController::previous`（元シーン参照）をSTOPPEDまで保持する。停止は非同期。OBSの`ClearSceneData`は残存入力ソースを検出すると`clearingFailed`にし、`LoadData`がエラー表示後`close()`する（OBSBasic_SceneCollections.cpp 1201・1637〜1665行）。案: CHANGING時点で`previous`を即解放（復元は不要）。
 - R2【中〜高】外部録画が同期的に開始失敗すると`externalRecording`がtrueのまま残り、以後「録画中」扱いで選択も自動終了も止まる。OBSの`StartRecording`はSTARTING後の失敗でSTOPPEDを出さない（OBSBasic_Recording.cpp 132〜136行、SimpleOutput.cpp 888〜907行）。案: 外部STARTINGにも期限を付け、非アクティブなら解除。
@@ -44,3 +46,4 @@
 - R11【低】起動待ち中の500msタイマーは、既存のフォルダー通知＋60秒期限1本に置換可能。
 - R12【低】配布EXEに自己テスト・ベンチマーク用コードが同梱。別ターゲットへ分離可能（常駐メモリへの効果は小）。
 見送り推奨: 選択オーバーレイの常駐キャッシュ（4Kで1面あたり約33MB）、WinRT JSONの置換、REC表示の1秒タイマー削除。
+- 2026-11-13 R1〜R3実装時に気付いた点（未対応）: 自分の録画要求でSTARTING後・STARTED前にコレクション切替が来ると、finish()で後処理するが録画自体は停止要求しない。OBSが録画を開始すれば追跡外の録画として続く（参照リークはない）
