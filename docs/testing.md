@@ -649,4 +649,10 @@ Windowsの管理者承認後、このPCの通常配置へ導入した。ProgramD
 - R2 `2e46508`：外部録画のSTARTING後にSTOPPEDが来ない開始失敗で、10秒後に録画が非アクティブなら外部録画扱いを解除する。controller-checkに、期限前は選択を開けず、期限後は選択・録画・停止できるケースを追加。所要時間が約10秒増えるため、controller-checkのCTest TIMEOUTを90→120秒にした。
 - R3 `241016b`：自分の録画要求がSTARTINGなしで戻った場合（出力無効化・保存先無効・空き容量不足）に、10秒待たず直ちに後処理しStartFailedを通知する。偽のCaptureController::startでSTARTINGとSTARTEDを分け、既存の「STARTING後に開始しない」10秒タイムアウトのケースを維持し、STARTINGなしの即時失敗ケースを追加。
 
-この環境はLinuxのためローカルビルド・実行はしていない。Windows CIの結果は下に追記する。実OBSでのコレクション切替・外部録画の開始失敗・保存先無効の再現試験は未実施。
+この環境はLinuxのためローカルビルド・実行はしていない。
+
+- [Windows build 43365813257](https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/43365813257)（`241016b`）：MSVCビルド（`warning C`なし）、CTest全10件成功（controller-check 60.67秒、合計108.45秒）、配布ZIPの内容照合に成功。
+- [Native assistant check 43365813290](https://github.com/yuuki-ama1015/obs-quick-record/actions/runs/43365813290)：成功（起動アシストは今回未変更）。
+- R1の途中コミット`16c219f`のCIは、続くプッシュで取り消された。最終コミットでR1〜R3すべてを含めて検証した。
+
+controller-checkはフロントエンドとキャプチャを置き換えた状態機械の試験で、実OBSの受入ではない。実OBSでのコレクション切替・外部録画の開始失敗・保存先無効の再現試験と、main・Release・PCへの反映は未実施。
