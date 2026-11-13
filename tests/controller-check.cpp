@@ -374,6 +374,22 @@ int main(int argc, char **argv)
         qa.recording = false;
         event(OBS_FRONTEND_EVENT_RECORDING_STOPPED);
     });
+    scenario(StartMode::Confirm, [] {
+        // External STARTING, then OBS's synchronous start failure: no STOPPED follows.
+        event(OBS_FRONTEND_EVENT_RECORDING_STARTING);
+        idle();
+        toggle();
+        assert(qa.opens == 1); // Blocked while that start may still be in progress.
+        wait(10200);
+        toggle(); // A failed external start must not block Quick Record until OBS restarts.
+        assert(qa.opens == 2 && qa.visible);
+        emit qa.overlay->selectionReady();
+        emit qa.overlay->confirmed();
+        wait(150);
+        assert(qa.starts == 1 && qa.recording);
+        stopped();
+        idle();
+    });
     for (int output = 0; output < 3; ++output) {
         scenario(StartMode::Confirm, [output] {
             emit qa.overlay->selectionReady();

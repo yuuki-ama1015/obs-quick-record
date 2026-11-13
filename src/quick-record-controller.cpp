@@ -44,6 +44,15 @@ QuickRecordController::QuickRecordController() : launcherSession([this] {
     connect(&startTimeout, &QTimer::timeout, this, [this] {
         if (pending && !obs_frontend_recording_active()) { finish(); notify("StartFailed"); }
     });
+    externalStartTimeout.setSingleShot(true);
+    connect(&externalStartTimeout, &QTimer::timeout, this, [this] {
+        // OBS 32.2.2 StartRecording emits STARTING, then may fail synchronously (output
+        // configuration or obs_output_start) without STOPPED. Asynchronous outputs such as
+        // custom FFmpeg set recording_active later, so judge only after the same deadline as ours.
+        if (shuttingDown || !externalRecording || obs_frontend_recording_active()) return;
+        externalRecording = false;
+        blog(LOG_INFO, "OBS Quick Record: external recording did not start");
+    });
     connect(&overlay, &QuickRecordOverlay::canceled, this, [this] { if (!pending) finish(); });
     connect(&overlay, &QuickRecordOverlay::settingsRequested, this, &QuickRecordController::showSettings);
     connect(&overlay, &QuickRecordOverlay::confirmed, this, [this] {
@@ -108,6 +117,7 @@ void QuickRecordController::onEvent(obs_frontend_event event)
     } else if (event == OBS_FRONTEND_EVENT_RECORDING_STARTING && !requested) {
         launcherSession.retain();
         externalRecording = true;
+        externalStartTimeout.start(10000);
         if (state != QuickRecordState::Idle || pending) finish();
     } else if (event == OBS_FRONTEND_EVENT_RECORDING_STARTED && pending && requested) {
         watchRecording(); // Cover an output replaced by an OBS recording mode.
@@ -138,6 +148,7 @@ void QuickRecordController::onEvent(obs_frontend_event event)
         const bool failed = requested && recordingResult.load() != OBS_OUTPUT_SUCCESS;
         if (failed) launcherSession.retain();
         externalRecording = false;
+        externalStartTimeout.stop();
         blog(LOG_INFO, "OBS Quick Record: recording stopped");
         finish();
         if (failed) notify("RecordingFailed");
@@ -145,6 +156,7 @@ void QuickRecordController::onEvent(obs_frontend_event event)
         launcherSession.retain();
         shuttingDown = true;
         launcherRequests.stop();
+        externalStartTimeout.stop();
         // OBS dispatches callbacks in reverse order, so removing this callback here is safe.
         // Its frontend API is destroyed before module_unload.
         if (frontendRegistered) obs_frontend_remove_event_callback(frontendEvent, this);

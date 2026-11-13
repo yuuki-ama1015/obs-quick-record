@@ -45,6 +45,7 @@ private:
     RecordingQuality recordingQuality;
     HotkeyManager hotkey;
     QTimer startTimeout;
+    QTimer externalStartTimeout; // OBS sends no STOPPED when a start fails after STARTING.
     QTimer countdown;
     QTimer prepareTimer;
     LauncherRequestWatcher launcherRequests;
