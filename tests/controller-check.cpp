@@ -30,7 +30,7 @@ static struct {
     obs_frontend_event_cb callback = nullptr;
     void *callbackData = nullptr;
     bool visible = false, allocated = false, recording = false, indicator = false;
-    bool prepareOK = true, ready = true, startOK = true, emitStarted = true;
+    bool prepareOK = true, ready = true, startOK = true, emitStarting = true, emitStarted = true;
     bool targetLost = false;
     bool otherOutput = false, replay = false, virtualCamera = false;
     bool outputMissing = false;
@@ -160,8 +160,9 @@ CaptureReadiness CaptureController::ready()
 bool CaptureController::start()
 {
     ++qa.starts;
-    if (qa.startOK && qa.emitStarted) {
-        event(OBS_FRONTEND_EVENT_RECORDING_STARTING);
+    // OBS runs StartRecording synchronously: STARTING precedes output start, STARTED follows it.
+    if (qa.startOK && qa.emitStarting) event(OBS_FRONTEND_EVENT_RECORDING_STARTING);
+    if (qa.startOK && qa.emitStarting && qa.emitStarted) {
         qa.recording = true;
         event(OBS_FRONTEND_EVENT_RECORDING_STARTED);
     }
@@ -356,13 +357,31 @@ int main(int argc, char **argv)
         assert(qa.opens == 2);
     });
     scenario(StartMode::Immediate, [] {
-        qa.emitStarted = false; // Frontend accepts request but encoder never starts.
+        qa.emitStarted = false; // STARTING, then the output fails without STOPPED.
         emit qa.overlay->selectionReady();
-        wait(10700);
+        wait(150);
+        assert(qa.allocated); // Waits for STARTED or the timeout.
+        wait(10550);
         idle();
         assert(qa.starts == 1);
         toggle();
         assert(qa.opens == 2);
+    });
+    scenario(StartMode::Immediate, [] {
+        // OBS refuses before STARTING: invalid path, low disk space or disabled outputs.
+        qa.emitStarting = false;
+        emit qa.overlay->selectionReady();
+        wait(150);
+        idle(); // Released immediately, not after the 10 second start timeout.
+        assert(qa.starts == 1 && !qa.recording);
+        bool notified = false;
+        for (auto *widget : QApplication::topLevelWidgets()) {
+            auto *box = qobject_cast<QMessageBox *>(widget);
+            if (box && box->text() == "StartFailed") { notified = true; box->close(); }
+        }
+        assert(notified);
+        toggle();
+        assert(qa.opens == 2 && qa.visible);
     });
     scenario(StartMode::Confirm, [] {
         emit qa.overlay->selectionReady();

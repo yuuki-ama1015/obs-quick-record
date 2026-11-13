@@ -50,6 +50,7 @@ private:
     QTimer prepareTimer;
     LauncherRequestWatcher launcherRequests;
     bool requested = false;
+    bool startingObserved = false; // RECORDING_STARTING seen for our own request.
     bool externalRecording = false;
     std::unique_ptr<RecordingIndicator> indicator;
     int seconds = 0;

@@ -37,7 +37,16 @@ QuickRecordController::QuickRecordController() : launcherSession([this] {
         prepareTimer.stop();
         if (!recordingQuality.apply(settings.economy)) { finish(); notify("QualityUnavailable"); return; }
         requested = true;
+        startingObserved = false;
         if (!capture.start()) { finish(); notify("StartFailed"); return; }
+        // obs_frontend_recording_start() runs OBS 32.2.2 StartRecording synchronously on this
+        // GUI thread. It refuses disabled outputs, invalid paths and low disk space before
+        // STARTING and never sends STOPPED, so do not keep the temporary scene until the timeout.
+        if (!requested) return; // OBS's modal prompt let a timeout or event finish this attempt.
+        if (!startingObserved) {
+            blog(LOG_WARNING, "OBS Quick Record: OBS refused to start recording");
+            finish(); notify("StartFailed"); return;
+        }
         blog(LOG_INFO, "OBS Quick Record: recording requested");
     });
     startTimeout.setSingleShot(true);
@@ -112,6 +121,7 @@ void QuickRecordController::onEvent(obs_frontend_event event)
             launcherRequests.start(launcherRequestPath, QCoreApplication::applicationPid());
         }
     } else if (event == OBS_FRONTEND_EVENT_RECORDING_STARTING && requested) {
+        startingObserved = true;
         recordingResult.store(OBS_OUTPUT_ERROR);
         watchRecording();
     } else if (event == OBS_FRONTEND_EVENT_RECORDING_STARTING && !requested) {
